@@ -3,8 +3,8 @@ import 'package:flutter/material.dart';
 
 class AppwriteConstants {
   static const String endpoint = 'https://cloud.appwrite.io/v1';
-  static const String projectId = '...........';
-  static const String databaseId = '..........';
+  static const String projectId = '68363bfe000210ecc4f3';
+  static const String databaseId = '68363c61002bcb6bc029';
   static const String recipesCollectionId = 'recipes';
   static const String usersCollectionId = 'users';
   static const String storageId = 'recipe-images';
