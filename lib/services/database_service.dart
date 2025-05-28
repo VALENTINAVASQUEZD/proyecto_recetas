@@ -25,7 +25,7 @@ class DatabaseService {
     _settingsBox = await Hive.openBox('settings');
   }
   
-
+  // Métodos de usuario
   Future<UserModel> createUser(String username, String password, String region) async {
     final user = UserModel(
       id: const Uuid().v4(),
@@ -50,7 +50,8 @@ class DatabaseService {
   List<UserModel> getAllUsers() {
     return _usersBox.values.toList();
   }
-
+  
+  // Métodos de recetas
   Future<Recipe> createRecipe({
     required String title,
     required String imagePath,
@@ -83,7 +84,8 @@ class DatabaseService {
   Future<void> deleteRecipe(String recipeId) async {
     await _recipesBox.delete(recipeId);
   }
-
+  
+  // Métodos de configuración
   Future<void> saveCurrentUser(String userId) async {
     await _settingsBox.put('currentUserId', userId);
   }
@@ -96,7 +98,7 @@ class DatabaseService {
     await _settingsBox.delete('currentUserId');
   }
   
-
+  // Métodos para estadísticas
   Map<String, int> getMostUsedIngredients(String userId, {int limit = 10}) {
     final userRecipes = getUserRecipes(userId);
     final Map<String, int> ingredientCount = {};
