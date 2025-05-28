@@ -16,16 +16,16 @@ List<CameraDescription> cameras = [];
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
+
   try {
     cameras = await availableCameras();
   } catch (e) {
     print('Error al inicializar cámaras: $e');
   }
-  
+
   await DatabaseService().initialize();
   AppwriteService().initialize();
-  
+
   runApp(const MyApp());
 }
 
@@ -75,16 +75,15 @@ class _SplashScreenState extends State<SplashScreen> {
     super.initState();
     _checkCurrentUser();
   }
-  
+
   Future<void> _checkCurrentUser() async {
     await Future.delayed(const Duration(seconds: 2));
-    
+
     final currentUserId = DatabaseService().getCurrentUserId();
-    
+
     if (currentUserId != null) {
       final users = DatabaseService().getUserRecipes(currentUserId);
       if (users.isNotEmpty) {
-        // Usuario ya logueado
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(
             builder: (context) => MyRecipesScreen(userId: currentUserId),
@@ -93,14 +92,14 @@ class _SplashScreenState extends State<SplashScreen> {
         return;
       }
     }
-    
+
     Navigator.of(context).pushReplacement(
       MaterialPageRoute(
         builder: (context) => const LoginScreen(),
       ),
     );
   }
-  
+
   @override
   Widget build(BuildContext context) {
     return const Scaffold(
@@ -143,26 +142,27 @@ class _LoginScreenState extends State<LoginScreen> {
   final _usernameController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _isLoading = false;
-  
+
   @override
   void dispose() {
     _usernameController.dispose();
     _passwordController.dispose();
     super.dispose();
   }
-  
+
   Future<void> _login() async {
     if (_formKey.currentState!.validate()) {
       setState(() {
         _isLoading = true;
       });
-      
+
       try {
-        final user = DatabaseService().getUserByUsername(_usernameController.text);
-        
+        final user =
+            DatabaseService().getUserByUsername(_usernameController.text);
+
         if (user != null && user.password == _passwordController.text) {
           await DatabaseService().saveCurrentUser(user.id);
-          
+
           if (mounted) {
             Navigator.of(context).pushReplacement(
               MaterialPageRoute(
@@ -198,7 +198,7 @@ class _LoginScreenState extends State<LoginScreen> {
       }
     }
   }
-  
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -323,7 +323,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _confirmPasswordController = TextEditingController();
   String _selectedRegion = ColombiaRegions.regions.first;
   bool _isLoading = false;
-  
+
   @override
   void dispose() {
     _usernameController.dispose();
@@ -331,16 +331,17 @@ class _RegisterScreenState extends State<RegisterScreen> {
     _confirmPasswordController.dispose();
     super.dispose();
   }
-  
+
   Future<void> _register() async {
     if (_formKey.currentState!.validate()) {
       setState(() {
         _isLoading = true;
       });
-      
+
       try {
-        final existingUser = DatabaseService().getUserByUsername(_usernameController.text);
-        
+        final existingUser =
+            DatabaseService().getUserByUsername(_usernameController.text);
+
         if (existingUser != null) {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
@@ -355,18 +356,17 @@ class _RegisterScreenState extends State<RegisterScreen> {
           });
           return;
         }
-        
+
         final user = await DatabaseService().createUser(
           _usernameController.text,
           _passwordController.text,
           _selectedRegion,
         );
-        
 
         await AppwriteService().syncUser(user);
-        
+
         await DatabaseService().saveCurrentUser(user.id);
-        
+
         if (mounted) {
           Navigator.of(context).pushReplacement(
             MaterialPageRoute(
@@ -392,7 +392,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       }
     }
   }
-  
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -537,7 +537,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
 class MyRecipesScreen extends StatefulWidget {
   final String userId;
-  
+
   const MyRecipesScreen({
     Key? key,
     required this.userId,
@@ -556,12 +556,12 @@ class _MyRecipesScreenState extends State<MyRecipesScreen> {
     super.initState();
     _loadRecipes();
   }
-  
+
   Future<void> _loadRecipes() async {
     setState(() {
       _isLoading = true;
     });
-    
+
     try {
       final recipes = DatabaseService().getUserRecipes(widget.userId);
       setState(() {
@@ -577,18 +577,18 @@ class _MyRecipesScreenState extends State<MyRecipesScreen> {
       });
     }
   }
-  
+
   Future<void> _deleteRecipe(Recipe recipe) async {
     try {
       await DatabaseService().deleteRecipe(recipe.id);
-      
+
       final file = File(recipe.imagePath);
       if (await file.exists()) {
         await file.delete();
       }
-      
+
       _loadRecipes();
-      
+
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Receta eliminada')),
       );
@@ -648,9 +648,11 @@ class _MyRecipesScreenState extends State<MyRecipesScreen> {
                     children: [
                       Icon(Icons.restaurant, size: 80, color: Colors.grey),
                       SizedBox(height: 16),
-                      Text('No tienes recetas', style: TextStyle(fontSize: 18, color: Colors.grey)),
+                      Text('No tienes recetas',
+                          style: TextStyle(fontSize: 18, color: Colors.grey)),
                       SizedBox(height: 8),
-                      Text('Toma una foto para crear tu primera receta', style: TextStyle(color: Colors.grey)),
+                      Text('Toma una foto para crear tu primera receta',
+                          style: TextStyle(color: Colors.grey)),
                     ],
                   ),
                 )
@@ -661,8 +663,9 @@ class _MyRecipesScreenState extends State<MyRecipesScreen> {
                     itemCount: _recipes.length,
                     itemBuilder: (context, index) {
                       final recipe = _recipes[index];
-                      final selectedIngredients = recipe.ingredients.where((i) => i.isSelected).length;
-                      
+                      final selectedIngredients =
+                          recipe.ingredients.where((i) => i.isSelected).length;
+
                       return Card(
                         margin: const EdgeInsets.only(bottom: 16),
                         child: ListTile(
@@ -679,7 +682,8 @@ class _MyRecipesScreenState extends State<MyRecipesScreen> {
                           subtitle: Text('$selectedIngredients ingredientes'),
                           trailing: PopupMenuButton(
                             itemBuilder: (context) => [
-                              const PopupMenuItem(value: 'delete', child: Text('Eliminar')),
+                              const PopupMenuItem(
+                                  value: 'delete', child: Text('Eliminar')),
                             ],
                             onSelected: (value) {
                               if (value == 'delete') {
@@ -690,7 +694,8 @@ class _MyRecipesScreenState extends State<MyRecipesScreen> {
                           onTap: () {
                             Navigator.of(context).push(
                               MaterialPageRoute(
-                                builder: (context) => RecipeDetailScreen(recipe: recipe),
+                                builder: (context) =>
+                                    RecipeDetailScreen(recipe: recipe),
                               ),
                             );
                           },
@@ -706,7 +711,7 @@ class _MyRecipesScreenState extends State<MyRecipesScreen> {
               builder: (context) => CameraScreen(userId: widget.userId),
             ),
           );
-          
+
           if (result == true) {
             _loadRecipes();
           }
@@ -720,7 +725,7 @@ class _MyRecipesScreenState extends State<MyRecipesScreen> {
 
 class CameraScreen extends StatefulWidget {
   final String userId;
-  
+
   const CameraScreen({
     Key? key,
     required this.userId,
@@ -735,19 +740,19 @@ class _CameraScreenState extends State<CameraScreen> {
   bool _isCameraInitialized = false;
   File? _imageFile;
   bool _isLoading = false;
-  
+
   @override
   void initState() {
     super.initState();
     _initializeCamera();
   }
-  
+
   @override
   void dispose() {
     _controller?.dispose();
     super.dispose();
   }
-  
+
   Future<void> _initializeCamera() async {
     if (cameras.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -755,11 +760,12 @@ class _CameraScreenState extends State<CameraScreen> {
       );
       return;
     }
-    
+
     final camera = cameras.first;
-    final controller = CameraController(camera, ResolutionPreset.high, enableAudio: false);
+    final controller =
+        CameraController(camera, ResolutionPreset.high, enableAudio: false);
     _controller = controller;
-    
+
     try {
       await controller.initialize();
       if (mounted) {
@@ -773,25 +779,28 @@ class _CameraScreenState extends State<CameraScreen> {
       );
     }
   }
-  
+
   Future<void> _takePicture() async {
-    if (_controller == null || !_controller!.value.isInitialized || _controller!.value.isTakingPicture) {
+    if (_controller == null ||
+        !_controller!.value.isInitialized ||
+        _controller!.value.isTakingPicture) {
       return;
     }
-    
+
     try {
       setState(() {
         _isLoading = true;
       });
-      
+
       final XFile photo = await _controller!.takePicture();
       final Directory appDir = await getApplicationDocumentsDirectory();
       final String dirPath = '${appDir.path}/RecetasIA/Images';
       await Directory(dirPath).create(recursive: true);
-      final String filePath = '$dirPath/${DateTime.now().millisecondsSinceEpoch}.jpg';
-      
+      final String filePath =
+          '$dirPath/${DateTime.now().millisecondsSinceEpoch}.jpg';
+
       await File(photo.path).copy(filePath);
-      
+
       setState(() {
         _imageFile = File(filePath);
         _isLoading = false;
@@ -805,13 +814,13 @@ class _CameraScreenState extends State<CameraScreen> {
       );
     }
   }
-  
+
   void _resetImage() {
     setState(() {
       _imageFile = null;
     });
   }
-  
+
   void _acceptImage() {
     if (_imageFile != null) {
       Navigator.of(context).pushReplacement(
@@ -824,7 +833,7 @@ class _CameraScreenState extends State<CameraScreen> {
       );
     }
   }
-  
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -832,12 +841,12 @@ class _CameraScreenState extends State<CameraScreen> {
       body: _imageFile != null ? _buildImagePreview() : _buildCameraPreview(),
     );
   }
-  
+
   Widget _buildCameraPreview() {
     if (!_isCameraInitialized) {
       return const Center(child: CircularProgressIndicator());
     }
-    
+
     return Column(
       children: [
         Expanded(child: CameraPreview(_controller!)),
@@ -850,14 +859,15 @@ class _CameraScreenState extends State<CameraScreen> {
                 ? const CircularProgressIndicator(color: Colors.white)
                 : IconButton(
                     onPressed: _takePicture,
-                    icon: const Icon(Icons.camera, color: Colors.white, size: 50),
+                    icon:
+                        const Icon(Icons.camera, color: Colors.white, size: 50),
                   ),
           ),
         ),
       ],
     );
   }
-  
+
   Widget _buildImagePreview() {
     return Column(
       children: [
@@ -888,7 +898,7 @@ class _CameraScreenState extends State<CameraScreen> {
 class RecipeEditScreen extends StatefulWidget {
   final String imagePath;
   final String userId;
-  
+
   const RecipeEditScreen({
     Key? key,
     required this.imagePath,
@@ -903,18 +913,18 @@ class _RecipeEditScreenState extends State<RecipeEditScreen> {
   final _titleController = TextEditingController();
   final _preparationController = TextEditingController();
   final _newIngredientController = TextEditingController();
-  
+
   List<Ingredient> _ingredients = [];
   bool _isLoading = true;
   bool _isSaving = false;
   String _userRegion = 'Región Andina';
-  
+
   @override
   void initState() {
     super.initState();
     _loadUserAndAnalyze();
   }
-  
+
   @override
   void dispose() {
     _titleController.dispose();
@@ -922,18 +932,15 @@ class _RecipeEditScreenState extends State<RecipeEditScreen> {
     _newIngredientController.dispose();
     super.dispose();
   }
-  
+
   Future<void> _loadUserAndAnalyze() async {
     try {
-
       final userRecipes = DatabaseService().getUserRecipes(widget.userId);
-      if (userRecipes.isNotEmpty) {
+      if (userRecipes.isNotEmpty) {}
 
-      }
-      
+      final result =
+          await AIService().analyzeRecipeImage(widget.imagePath, _userRegion);
 
-      final result = await AIService().analyzeRecipeImage(widget.imagePath, _userRegion);
-      
       setState(() {
         _titleController.text = 'Nueva Receta';
         _ingredients = result['ingredients'] as List<Ingredient>;
@@ -949,13 +956,13 @@ class _RecipeEditScreenState extends State<RecipeEditScreen> {
       );
     }
   }
-  
+
   void _toggleIngredient(int index) {
     setState(() {
       _ingredients[index].isSelected = !_ingredients[index].isSelected;
     });
   }
-  
+
   void _addIngredient() {
     if (_newIngredientController.text.trim().isNotEmpty) {
       setState(() {
@@ -969,13 +976,13 @@ class _RecipeEditScreenState extends State<RecipeEditScreen> {
       });
     }
   }
-  
+
   void _removeIngredient(int index) {
     setState(() {
       _ingredients.removeAt(index);
     });
   }
-  
+
   Future<void> _saveRecipe() async {
     if (_titleController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -983,20 +990,21 @@ class _RecipeEditScreenState extends State<RecipeEditScreen> {
       );
       return;
     }
-    
-    final selectedIngredients = _ingredients.where((i) => i.isSelected).toList();
-    
+
+    final selectedIngredients =
+        _ingredients.where((i) => i.isSelected).toList();
+
     if (selectedIngredients.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Selecciona al menos un ingrediente')),
       );
       return;
     }
-    
+
     setState(() {
       _isSaving = true;
     });
-    
+
     try {
       final recipe = await DatabaseService().createRecipe(
         title: _titleController.text,
@@ -1007,7 +1015,7 @@ class _RecipeEditScreenState extends State<RecipeEditScreen> {
       );
 
       await AppwriteService().syncRecipe(recipe);
-      
+
       Navigator.of(context).pop(true);
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -1019,7 +1027,7 @@ class _RecipeEditScreenState extends State<RecipeEditScreen> {
       });
     }
   }
-  
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -1049,7 +1057,9 @@ class _RecipeEditScreenState extends State<RecipeEditScreen> {
                     ),
                   ),
                   const SizedBox(height: 24),
-                  const Text('Ingredientes', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                  const Text('Ingredientes',
+                      style:
+                          TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 8),
                   ListView.builder(
                     shrinkWrap: true,
@@ -1068,7 +1078,8 @@ class _RecipeEditScreenState extends State<RecipeEditScreen> {
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               if (ingredient.isAIGenerated)
-                                const Icon(Icons.auto_awesome, size: 16, color: Colors.orange),
+                                const Icon(Icons.auto_awesome,
+                                    size: 16, color: Colors.orange),
                               IconButton(
                                 icon: const Icon(Icons.delete_outline),
                                 onPressed: () => _removeIngredient(index),
@@ -1104,7 +1115,9 @@ class _RecipeEditScreenState extends State<RecipeEditScreen> {
                     ],
                   ),
                   const SizedBox(height: 24),
-                  const Text('Preparación', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                  const Text('Preparación',
+                      style:
+                          TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 8),
                   TextFormField(
                     controller: _preparationController,
@@ -1134,35 +1147,42 @@ class _RecipeEditScreenState extends State<RecipeEditScreen> {
 
 class RecipeDetailScreen extends StatelessWidget {
   final Recipe recipe;
-  
+
   const RecipeDetailScreen({Key? key, required this.recipe}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
-    final selectedIngredients = recipe.ingredients.where((i) => i.isSelected).toList();
-    
+    final selectedIngredients =
+        recipe.ingredients.where((i) => i.isSelected).toList();
+
     return Scaffold(
       appBar: AppBar(title: Text(recipe.title)),
       body: SingleChildScrollView(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Image.file(File(recipe.imagePath), height: 250, width: double.infinity, fit: BoxFit.cover),
+            Image.file(File(recipe.imagePath),
+                height: 250, width: double.infinity, fit: BoxFit.cover),
             Padding(
               padding: const EdgeInsets.all(16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(recipe.title, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+                  Text(recipe.title,
+                      style: const TextStyle(
+                          fontSize: 24, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 24),
-                  const Text('Ingredientes', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                  const Text('Ingredientes',
+                      style:
+                          TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 8),
                   ...selectedIngredients.map((ingredient) {
                     return Padding(
                       padding: const EdgeInsets.symmetric(vertical: 4),
                       child: Row(
                         children: [
-                          const Icon(Icons.check_circle, color: Colors.green, size: 20),
+                          const Icon(Icons.check_circle,
+                              color: Colors.green, size: 20),
                           const SizedBox(width: 8),
                           Text(ingredient.name),
                         ],
@@ -1170,9 +1190,12 @@ class RecipeDetailScreen extends StatelessWidget {
                     );
                   }).toList(),
                   const SizedBox(height: 24),
-                  const Text('Preparación', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                  const Text('Preparación',
+                      style:
+                          TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 8),
-                  Text(recipe.preparation, style: const TextStyle(fontSize: 16, height: 1.5)),
+                  Text(recipe.preparation,
+                      style: const TextStyle(fontSize: 16, height: 1.5)),
                   const SizedBox(height: 32),
                   SizedBox(
                     width: double.infinity,
@@ -1193,7 +1216,7 @@ class RecipeDetailScreen extends StatelessWidget {
 
 class ProfileScreen extends StatefulWidget {
   final String userId;
-  
+
   const ProfileScreen({Key? key, required this.userId}) : super(key: key);
 
   @override
@@ -1205,18 +1228,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
   final _usernameController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
-  
+
   String _selectedRegion = ColombiaRegions.regions.first;
   String? _profileImagePath;
   bool _isLoading = false;
   UserModel? _currentUser;
-  
+
   @override
   void initState() {
     super.initState();
     _loadUserData();
   }
-  
+
   @override
   void dispose() {
     _usernameController.dispose();
@@ -1224,30 +1247,29 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _confirmPasswordController.dispose();
     super.dispose();
   }
-  
-  Future<void> _loadUserData() async {
 
+  Future<void> _loadUserData() async {
     final recipes = DatabaseService().getUserRecipes(widget.userId);
     if (recipes.isNotEmpty) {
-
       _usernameController.text = 'Usuario';
       _selectedRegion = ColombiaRegions.regions.first;
     }
   }
-  
+
   Future<void> _pickImage() async {
     try {
       final ImagePicker picker = ImagePicker();
       final XFile? image = await picker.pickImage(source: ImageSource.gallery);
-      
+
       if (image != null) {
         final Directory appDir = await getApplicationDocumentsDirectory();
         final String dirPath = '${appDir.path}/RecetasIA/Profiles';
         await Directory(dirPath).create(recursive: true);
-        final String filePath = '$dirPath/${DateTime.now().millisecondsSinceEpoch}.jpg';
-        
+        final String filePath =
+            '$dirPath/${DateTime.now().millisecondsSinceEpoch}.jpg';
+
         await File(image.path).copy(filePath);
-        
+
         setState(() {
           _profileImagePath = filePath;
         });
@@ -1258,15 +1280,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
       );
     }
   }
-  
+
   Future<void> _updateProfile() async {
     if (_formKey.currentState!.validate()) {
       setState(() {
         _isLoading = true;
       });
-      
-      try {
 
+      try {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Perfil actualizado correctamente')),
         );
@@ -1282,7 +1303,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       }
     }
   }
-  
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -1301,9 +1322,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     CircleAvatar(
                       radius: 60,
                       backgroundColor: Colors.grey[300],
-                      backgroundImage: _profileImagePath != null ? FileImage(File(_profileImagePath!)) : null,
+                      backgroundImage: _profileImagePath != null
+                          ? FileImage(File(_profileImagePath!))
+                          : null,
                       child: _profileImagePath == null
-                          ? const Icon(Icons.person, size: 60, color: Colors.grey)
+                          ? const Icon(Icons.person,
+                              size: 60, color: Colors.grey)
                           : null,
                     ),
                     Positioned(
@@ -1315,7 +1339,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           color: Colors.green,
                           shape: BoxShape.circle,
                         ),
-                        child: const Icon(Icons.camera_alt, color: Colors.white, size: 20),
+                        child: const Icon(Icons.camera_alt,
+                            color: Colors.white, size: 20),
                       ),
                     ),
                   ],
@@ -1408,7 +1433,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
 class StatisticsScreen extends StatefulWidget {
   final String userId;
-  
+
   const StatisticsScreen({Key? key, required this.userId}) : super(key: key);
 
   @override
@@ -1419,22 +1444,24 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
   Map<String, int> _topIngredients = {};
   Map<String, int> _weeklyRecipes = {};
   bool _isLoading = true;
-  
+
   @override
   void initState() {
     super.initState();
     _loadStatistics();
   }
-  
+
   Future<void> _loadStatistics() async {
     setState(() {
       _isLoading = true;
     });
-    
+
     try {
-      final topIngredients = DatabaseService().getMostUsedIngredients(widget.userId);
-      final weeklyRecipes = DatabaseService().getWeeklyRecipeCount(widget.userId);
-      
+      final topIngredients =
+          DatabaseService().getMostUsedIngredients(widget.userId);
+      final weeklyRecipes =
+          DatabaseService().getWeeklyRecipeCount(widget.userId);
+
       setState(() {
         _topIngredients = topIngredients;
         _weeklyRecipes = weeklyRecipes;
@@ -1449,7 +1476,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
       );
     }
   }
-  
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -1465,7 +1492,8 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
                   children: [
                     const Text(
                       'Ingredientes más usados',
-                      style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                      style:
+                          TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                     ),
                     const SizedBox(height: 16),
                     _buildPieChart(),
@@ -1474,7 +1502,8 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
                     const SizedBox(height: 24),
                     const Text(
                       'Recetas semanales',
-                      style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                      style:
+                          TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                     ),
                     const SizedBox(height: 16),
                     _buildBarChart(),
@@ -1484,7 +1513,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
             ),
     );
   }
-  
+
   Widget _buildPieChart() {
     if (_topIngredients.isEmpty) {
       return const Center(
@@ -1494,7 +1523,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
         ),
       );
     }
-    
+
     return SizedBox(
       height: 200,
       child: PieChart(
@@ -1506,11 +1535,17 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
       ),
     );
   }
-  
+
   List<PieChartSectionData> _getPieChartSections() {
-    final colors = [Colors.green, Colors.blue, Colors.orange, Colors.purple, Colors.red];
+    final colors = [
+      Colors.green,
+      Colors.blue,
+      Colors.orange,
+      Colors.purple,
+      Colors.red
+    ];
     final entries = _topIngredients.entries.take(5).toList();
-    
+
     return List.generate(entries.length, (index) {
       final entry = entries[index];
       return PieChartSectionData(
@@ -1518,27 +1553,35 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
         value: entry.value.toDouble(),
         title: '${entry.value}',
         radius: 50,
-        titleStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white),
+        titleStyle: const TextStyle(
+            fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white),
       );
     });
   }
-  
+
   Widget _buildTopIngredientsList() {
     if (_topIngredients.isEmpty) {
       return const Center(
         child: Text('No hay ingredientes para mostrar'),
       );
     }
-    
-    final colors = [Colors.green, Colors.blue, Colors.orange, Colors.purple, Colors.red];
-    
+
+    final colors = [
+      Colors.green,
+      Colors.blue,
+      Colors.orange,
+      Colors.purple,
+      Colors.red
+    ];
+
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Top 10 Ingredientes', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            const Text('Top 10 Ingredientes',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
             ...List.generate(_topIngredients.length, (index) {
               final entry = _topIngredients.entries.elementAt(index);
@@ -1556,7 +1599,8 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
                     ),
                     const SizedBox(width: 8),
                     Expanded(child: Text(entry.key)),
-                    Text('${entry.value}', style: const TextStyle(fontWeight: FontWeight.bold)),
+                    Text('${entry.value}',
+                        style: const TextStyle(fontWeight: FontWeight.bold)),
                   ],
                 ),
               );
@@ -1566,14 +1610,14 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
       ),
     );
   }
-  
+
   Widget _buildBarChart() {
     if (_weeklyRecipes.values.every((count) => count == 0)) {
       return const Center(
         child: Text('No hay recetas esta semana'),
       );
     }
-    
+
     return SizedBox(
       height: 250,
       child: BarChart(
@@ -1586,8 +1630,17 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
               sideTitles: SideTitles(
                 showTitles: true,
                 getTitlesWidget: (value, meta) {
-                  final weekdays = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
-                  return Text(weekdays[value.toInt()], style: const TextStyle(fontSize: 12));
+                  final weekdays = [
+                    'Lun',
+                    'Mar',
+                    'Mié',
+                    'Jue',
+                    'Vie',
+                    'Sáb',
+                    'Dom'
+                  ];
+                  return Text(weekdays[value.toInt()],
+                      style: const TextStyle(fontSize: 12));
                 },
               ),
             ),
@@ -1595,12 +1648,15 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
               sideTitles: SideTitles(
                 showTitles: true,
                 getTitlesWidget: (value, meta) {
-                  return Text(value.toInt().toString(), style: const TextStyle(fontSize: 12));
+                  return Text(value.toInt().toString(),
+                      style: const TextStyle(fontSize: 12));
                 },
               ),
             ),
-            topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-            rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+            topTitles:
+                const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+            rightTitles:
+                const AxisTitles(sideTitles: SideTitles(showTitles: false)),
           ),
           borderData: FlBorderData(show: false),
           barGroups: _getBarGroups(),
@@ -1608,10 +1664,10 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
       ),
     );
   }
-  
+
   List<BarChartGroupData> _getBarGroups() {
     final weekdays = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
-    
+
     return List.generate(7, (index) {
       final count = _weeklyRecipes[weekdays[index]] ?? 0;
       return BarChartGroupData(
@@ -1630,7 +1686,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
       );
     });
   }
-  
+
   double _getMaxRecipeCount() {
     if (_weeklyRecipes.isEmpty) return 1;
     return _weeklyRecipes.values.reduce((a, b) => a > b ? a : b).toDouble();
