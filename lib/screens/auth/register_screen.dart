@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:recipe_app/screens/recipes/my_recipes_screen.dart';
-import 'package:recipe_app/services/local_db_service.dart';
-import 'package:recipe_app/utils/constants.dart';
-import 'package:recipe_app/widgets/custom_button.dart';
+import 'package:proyecto_recetas/screens/recipes/my_recipes_screen.dart';
+import 'package:proyecto_recetas/services/local_db_service.dart';
+import 'package:proyecto_recetas/services/constants.dart';
+import 'package:proyecto_recetas/widgets/custom_button.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({Key? key}) : super(key: key);
@@ -18,7 +18,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _confirmPasswordController = TextEditingController();
   String _selectedRegion = ColombiaRegions.regions.first;
   bool _isLoading = false;
-  
+
   @override
   void dispose() {
     _usernameController.dispose();
@@ -26,16 +26,17 @@ class _RegisterScreenState extends State<RegisterScreen> {
     _confirmPasswordController.dispose();
     super.dispose();
   }
-  
+
   Future<void> _register() async {
     if (_formKey.currentState!.validate()) {
       setState(() {
         _isLoading = true;
       });
-      
+
       try {
-        final existingUser = LocalDBService().getUserByUsername(_usernameController.text);
-        
+        final existingUser =
+            LocalDBService().getUserByUsername(_usernameController.text);
+
         if (existingUser != null) {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
@@ -47,15 +48,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
           }
           return;
         }
-        
+
         final user = await LocalDBService().createUser(
           _usernameController.text,
           _passwordController.text,
           _selectedRegion,
         );
-        
+
         await LocalDBService().saveCurrentUser(user.id);
-        
+
         if (mounted) {
           Navigator.of(context).pushReplacement(
             MaterialPageRoute(
@@ -81,7 +82,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       }
     }
   }
-  
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(

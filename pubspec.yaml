@@ -18,7 +18,7 @@ dependencies:
   hive: ^2.2.3
   hive_flutter: ^1.1.0
   uuid: ^4.1.0
-  appwrite: ^11.0.0
+  appwrite: ^17.0.0
   fl_chart: ^0.66.0
   image_picker: ^1.0.4
 

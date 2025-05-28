@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
-import 'package:recipe_app/models/ingredient.dart';
-import 'package:recipe_app/models/user.dart';
-import 'package:recipe_app/services/local_db_service.dart';
-import 'package:recipe_app/utils/constants.dart';
+import 'package:proyecto_recetas/models/ingredient.dart';
+import 'package:proyecto_recetas/models/user.dart';
+import 'package:proyecto_recetas/services/local_db_service.dart';
+import 'package:proyecto_recetas/services/constants.dart';
 
 class StatisticsScreen extends StatefulWidget {
   final UserModel user;
-  
+
   const StatisticsScreen({
     Key? key,
     required this.user,
@@ -21,22 +21,24 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
   List<Ingredient> _topIngredients = [];
   Map<String, int> _weeklyRecipes = {};
   bool _isLoading = true;
-  
+
   @override
   void initState() {
     super.initState();
     _loadStatistics();
   }
-  
+
   Future<void> _loadStatistics() async {
     setState(() {
       _isLoading = true;
     });
-    
+
     try {
-      final topIngredients = LocalDBService().getMostUsedIngredients(widget.user.id);
-      final weeklyRecipes = LocalDBService().getWeeklyRecipeCount(widget.user.id);
-      
+      final topIngredients =
+          LocalDBService().getMostUsedIngredients(widget.user.id);
+      final weeklyRecipes =
+          LocalDBService().getWeeklyRecipeCount(widget.user.id);
+
       setState(() {
         _topIngredients = topIngredients;
         _weeklyRecipes = weeklyRecipes;
@@ -56,7 +58,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
       }
     }
   }
-  
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -99,7 +101,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
             ),
     );
   }
-  
+
   Widget _buildPieChart() {
     if (_topIngredients.isEmpty) {
       return const Center(
@@ -112,7 +114,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
         ),
       );
     }
-    
+
     return SizedBox(
       height: 200,
       child: PieChart(
@@ -125,7 +127,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
       ),
     );
   }
-  
+
   List<PieChartSectionData> _getIngredientSections() {
     final List<Color> colors = [
       AppColors.primary,
@@ -139,7 +141,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
       Colors.indigo,
       Colors.cyan,
     ];
-    
+
     return List.generate(
       _topIngredients.length > 5 ? 5 : _topIngredients.length,
       (index) {
@@ -158,7 +160,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
       },
     );
   }
-  
+
   Widget _buildTopIngredientsList() {
     if (_topIngredients.isEmpty) {
       return const Center(
@@ -171,7 +173,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
         ),
       );
     }
-    
+
     final List<Color> colors = [
       AppColors.primary,
       AppColors.secondary,
@@ -184,7 +186,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
       Colors.indigo,
       Colors.cyan,
     ];
-    
+
     return Card(
       elevation: 2,
       child: Padding(
@@ -233,7 +235,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
       ),
     );
   }
-  
+
   Widget _buildBarChart() {
     if (_weeklyRecipes.values.every((count) => count == 0)) {
       return const Center(
@@ -246,7 +248,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
         ),
       );
     }
-    
+
     return SizedBox(
       height: 250,
       child: BarChart(
@@ -261,7 +263,13 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
                 showTitles: true,
                 getTitlesWidget: (value, meta) {
                   final weekdays = [
-                    'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'
+                    'Lun',
+                    'Mar',
+                    'Mié',
+                    'Jue',
+                    'Vie',
+                    'Sáb',
+                    'Dom'
                   ];
                   return Padding(
                     padding: const EdgeInsets.only(top: 8),
@@ -318,12 +326,18 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
       ),
     );
   }
-  
+
   List<BarChartGroupData> _getBarGroups() {
     final weekdays = [
-      'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'
+      'Lunes',
+      'Martes',
+      'Miércoles',
+      'Jueves',
+      'Viernes',
+      'Sábado',
+      'Domingo'
     ];
-    
+
     return List.generate(7, (index) {
       final count = _weeklyRecipes[weekdays[index]] ?? 0;
       return BarChartGroupData(
@@ -342,7 +356,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
       );
     });
   }
-  
+
   double _getMaxRecipeCount() {
     if (_weeklyRecipes.isEmpty) return 1;
     return _weeklyRecipes.values.reduce((a, b) => a > b ? a : b).toDouble();

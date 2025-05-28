@@ -1,14 +1,14 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:recipe_app/models/recipe.dart';
-import 'package:recipe_app/utils/constants.dart';
+import 'package:proyecto_recetas/models/recipe.dart';
+import 'package:proyecto_recetas/services/constants.dart';
 
 class RecipeCard extends StatelessWidget {
   final Recipe recipe;
   final VoidCallback onTap;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
-  
+
   const RecipeCard({
     Key? key,
     required this.recipe,
@@ -19,8 +19,9 @@ class RecipeCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final selectedIngredients = recipe.ingredients.where((i) => i.isSelected).toList();
-    
+    final selectedIngredients =
+        recipe.ingredients.where((i) => i.isSelected).toList();
+
     return GestureDetector(
       onTap: onTap,
       child: Card(
@@ -116,7 +117,7 @@ class RecipeCard extends StatelessWidget {
       ),
     );
   }
-  
+
   String _formatDate(DateTime date) {
     return '${date.day}/${date.month}/${date.year}';
   }

@@ -1,19 +1,19 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:recipe_app/models/recipe.dart';
-import 'package:recipe_app/models/user.dart';
-import 'package:recipe_app/screens/auth/login_screen.dart';
-import 'package:recipe_app/screens/profile/profile_screen.dart';
-import 'package:recipe_app/screens/recipes/camera_screen.dart';
-import 'package:recipe_app/screens/recipes/recipe_detail_screen.dart';
-import 'package:recipe_app/screens/statistics/statistics_screen.dart';
-import 'package:recipe_app/services/local_db_service.dart';
-import 'package:recipe_app/utils/constants.dart';
-import 'package:recipe_app/widgets/recipe_card.dart';
+import 'package:proyecto_recetas/models/recipe.dart';
+import 'package:proyecto_recetas/models/user.dart';
+import 'package:proyecto_recetas/screens/auth/login_screen.dart';
+import 'package:proyecto_recetas/screens/profile/profile_screen.dart';
+import 'package:proyecto_recetas/screens/recipes/camera_screen.dart';
+import 'package:proyecto_recetas/screens/recipes/recipe_detail_screen.dart';
+import 'package:proyecto_recetas/screens/statistics/statistics_screen.dart';
+import 'package:proyecto_recetas/services/local_db_service.dart';
+import 'package:proyecto_recetas/services/constants.dart';
+import 'package:proyecto_recetas/widgets/recipe_card.dart';
 
 class MyRecipesScreen extends StatefulWidget {
   final UserModel user;
-  
+
   const MyRecipesScreen({
     Key? key,
     required this.user,
@@ -26,18 +26,18 @@ class MyRecipesScreen extends StatefulWidget {
 class _MyRecipesScreenState extends State<MyRecipesScreen> {
   List<Recipe> _recipes = [];
   bool _isLoading = true;
-  
+
   @override
   void initState() {
     super.initState();
     _loadRecipes();
   }
-  
+
   Future<void> _loadRecipes() async {
     setState(() {
       _isLoading = true;
     });
-    
+
     try {
       final recipes = LocalDBService().getUserRecipes(widget.user.id);
       setState(() {
@@ -58,21 +58,21 @@ class _MyRecipesScreenState extends State<MyRecipesScreen> {
       });
     }
   }
-  
+
   Future<void> _deleteRecipe(Recipe recipe) async {
     try {
       await LocalDBService().deleteRecipe(recipe.id);
-      
+
       // Si hay una imagen, eliminarla
       final file = File(recipe.imagePath);
       if (await file.exists()) {
         await file.delete();
       }
-      
+
       setState(() {
         _recipes.removeWhere((r) => r.id == recipe.id);
       });
-      
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -91,11 +91,11 @@ class _MyRecipesScreenState extends State<MyRecipesScreen> {
       }
     }
   }
-  
+
   Future<void> _logout() async {
     try {
       await LocalDBService().clearCurrentUser();
-      
+
       if (mounted) {
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(
@@ -114,7 +114,7 @@ class _MyRecipesScreenState extends State<MyRecipesScreen> {
       }
     }
   }
-  
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -179,10 +179,11 @@ class _MyRecipesScreenState extends State<MyRecipesScreen> {
                         onPressed: () async {
                           final result = await Navigator.of(context).push(
                             MaterialPageRoute(
-                              builder: (context) => CameraScreen(user: widget.user),
+                              builder: (context) =>
+                                  CameraScreen(user: widget.user),
                             ),
                           );
-                          
+
                           if (result == true) {
                             _loadRecipes();
                           }
@@ -197,7 +198,8 @@ class _MyRecipesScreenState extends State<MyRecipesScreen> {
                   onRefresh: _loadRecipes,
                   child: GridView.builder(
                     padding: const EdgeInsets.all(16),
-                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    gridDelegate:
+                        const SliverGridDelegateWithFixedCrossAxisCount(
                       crossAxisCount: 2,
                       childAspectRatio: 0.75,
                       crossAxisSpacing: 16,
@@ -211,16 +213,16 @@ class _MyRecipesScreenState extends State<MyRecipesScreen> {
                         onTap: () async {
                           final result = await Navigator.of(context).push(
                             MaterialPageRoute(
-                              builder: (context) => RecipeDetailScreen(recipe: recipe),
+                              builder: (context) =>
+                                  RecipeDetailScreen(recipe: recipe),
                             ),
                           );
-                          
+
                           if (result == true) {
                             _loadRecipes();
                           }
                         },
                         onEdit: () async {
-       
                           _loadRecipes();
                         },
                         onDelete: () => _deleteRecipe(recipe),
@@ -235,7 +237,7 @@ class _MyRecipesScreenState extends State<MyRecipesScreen> {
               builder: (context) => CameraScreen(user: widget.user),
             ),
           );
-          
+
           if (result == true) {
             _loadRecipes();
           }

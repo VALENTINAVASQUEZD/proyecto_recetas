@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:recipe_app/screens/auth/register_screen.dart';
-import 'package:recipe_app/screens/recipes/my_recipes_screen.dart';
-import 'package:recipe_app/services/local_db_service.dart';
-import 'package:recipe_app/utils/constants.dart';
-import 'package:recipe_app/widgets/custom_button.dart';
+import 'package:proyecto_recetas/screens/auth/register_screen.dart';
+import 'package:proyecto_recetas/screens/recipes/my_recipes_screen.dart';
+import 'package:proyecto_recetas/services/local_db_service.dart';
+import 'package:proyecto_recetas/services/constants.dart';
+import 'package:proyecto_recetas/widgets/custom_button.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({Key? key}) : super(key: key);
@@ -17,26 +17,27 @@ class _LoginScreenState extends State<LoginScreen> {
   final _usernameController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _isLoading = false;
-  
+
   @override
   void dispose() {
     _usernameController.dispose();
     _passwordController.dispose();
     super.dispose();
   }
-  
+
   Future<void> _login() async {
     if (_formKey.currentState!.validate()) {
       setState(() {
         _isLoading = true;
       });
-      
+
       try {
-        final user = LocalDBService().getUserByUsername(_usernameController.text);
-        
+        final user =
+            LocalDBService().getUserByUsername(_usernameController.text);
+
         if (user != null && user.password == _passwordController.text) {
           await LocalDBService().saveCurrentUser(user.id);
-          
+
           if (mounted) {
             Navigator.of(context).pushReplacement(
               MaterialPageRoute(
@@ -72,7 +73,7 @@ class _LoginScreenState extends State<LoginScreen> {
       }
     }
   }
-  
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(

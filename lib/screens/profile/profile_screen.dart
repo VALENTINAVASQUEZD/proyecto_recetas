@@ -2,14 +2,14 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:recipe_app/models/user.dart';
-import 'package:recipe_app/services/local_db_service.dart';
-import 'package:recipe_app/utils/constants.dart';
-import 'package:recipe_app/widgets/custom_button.dart';
+import 'package:proyecto_recetas/models/user.dart';
+import 'package:proyecto_recetas/services/local_db_service.dart';
+import 'package:proyecto_recetas/services/constants.dart';
+import 'package:proyecto_recetas/widgets/custom_button.dart';
 
 class ProfileScreen extends StatefulWidget {
   final UserModel user;
-  
+
   const ProfileScreen({
     Key? key,
     required this.user,
@@ -24,11 +24,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
   final _usernameController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
-  
+
   String _selectedRegion = ColombiaRegions.regions.first;
   String? _profileImagePath;
   bool _isLoading = false;
-  
+
   @override
   void initState() {
     super.initState();
@@ -36,7 +36,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _selectedRegion = widget.user.region;
     _profileImagePath = widget.user.profileImagePath;
   }
-  
+
   @override
   void dispose() {
     _usernameController.dispose();
@@ -44,21 +44,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _confirmPasswordController.dispose();
     super.dispose();
   }
-  
+
   Future<void> _pickImage() async {
     try {
       final ImagePicker picker = ImagePicker();
       final XFile? image = await picker.pickImage(source: ImageSource.gallery);
-      
+
       if (image != null) {
         // Guardar la imagen en un directorio de la aplicación
         final Directory appDir = await getApplicationDocumentsDirectory();
         final String dirPath = '${appDir.path}/RecetasIA/Profiles';
         await Directory(dirPath).create(recursive: true);
-        final String filePath = '$dirPath/${DateTime.now().millisecondsSinceEpoch}.jpg';
-        
+        final String filePath =
+            '$dirPath/${DateTime.now().millisecondsSinceEpoch}.jpg';
+
         await File(image.path).copy(filePath);
-        
+
         setState(() {
           _profileImagePath = filePath;
         });
@@ -74,13 +75,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
       }
     }
   }
-  
+
   Future<void> _updateProfile() async {
     if (_formKey.currentState!.validate()) {
       setState(() {
         _isLoading = true;
       });
-      
+
       try {
         final updatedUser = UserModel(
           id: widget.user.id,
@@ -92,9 +93,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
           profileImagePath: _profileImagePath,
           appwriteId: widget.user.appwriteId,
         );
-        
+
         await LocalDBService().updateUser(updatedUser);
-        
+
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
@@ -122,7 +123,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       }
     }
   }
-  
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -258,4 +259,3 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 }
-

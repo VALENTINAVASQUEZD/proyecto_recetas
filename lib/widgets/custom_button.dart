@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:recipe_app/utils/constants.dart';
+import 'package:proyecto_recetas/services/constants.dart';
 
 class CustomButton extends StatelessWidget {
   final String text;
@@ -7,7 +7,7 @@ class CustomButton extends StatelessWidget {
   final bool isLoading;
   final bool isOutlined;
   final IconData? icon;
-  
+
   const CustomButton({
     Key? key,
     required this.text,
@@ -35,7 +35,7 @@ class CustomButton extends StatelessWidget {
               borderRadius: BorderRadius.circular(8),
             ),
           );
-    
+
     final buttonChild = isLoading
         ? const SizedBox(
             width: 24,
@@ -55,7 +55,7 @@ class CustomButton extends StatelessWidget {
                 ],
               )
             : Text(text);
-    
+
     return SizedBox(
       width: double.infinity,
       height: 48,

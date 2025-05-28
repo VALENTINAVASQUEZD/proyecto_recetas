@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
-import 'package:recipe_app/models/ingredient.dart';
-import 'package:recipe_app/utils/constants.dart';
+import 'package:proyecto_recetas/models/ingredient.dart';
+import 'package:proyecto_recetas/services/constants.dart';
 
 class IngredientItem extends StatelessWidget {
   final Ingredient ingredient;
   final VoidCallback onToggle;
   final VoidCallback onDelete;
-  
+
   const IngredientItem({
     Key? key,
     required this.ingredient,

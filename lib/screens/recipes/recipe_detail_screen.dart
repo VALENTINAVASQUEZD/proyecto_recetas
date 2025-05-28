@@ -1,12 +1,12 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:recipe_app/models/ingredient.dart';
-import 'package:recipe_app/models/recipe.dart';
-import 'package:recipe_app/utils/constants.dart';
+import 'package:proyecto_recetas/models/ingredient.dart';
+import 'package:proyecto_recetas/models/recipe.dart';
+import 'package:proyecto_recetas/services/constants.dart';
 
 class RecipeDetailScreen extends StatelessWidget {
   final Recipe recipe;
-  
+
   const RecipeDetailScreen({
     Key? key,
     required this.recipe,
@@ -14,8 +14,9 @@ class RecipeDetailScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final selectedIngredients = recipe.ingredients.where((i) => i.isSelected).toList();
-    
+    final selectedIngredients =
+        recipe.ingredients.where((i) => i.isSelected).toList();
+
     return Scaffold(
       appBar: AppBar(
         title: Text(recipe.title),
@@ -94,7 +95,7 @@ class RecipeDetailScreen extends StatelessWidget {
       ),
     );
   }
-  
+
   Widget _buildIngredientsList(List<Ingredient> ingredients) {
     return Card(
       elevation: 0,
@@ -127,7 +128,7 @@ class RecipeDetailScreen extends StatelessWidget {
       ),
     );
   }
-  
+
   String _formatDate(DateTime date) {
     return '${date.day}/${date.month}/${date.year}';
   }

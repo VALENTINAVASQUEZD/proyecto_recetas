@@ -1,20 +1,20 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:recipe_app/models/ingredient.dart';
-import 'package:recipe_app/models/recipe.dart';
-import 'package:recipe_app/models/user.dart';
-import 'package:recipe_app/services/ai_service.dart';
-import 'package:recipe_app/services/local_db_service.dart';
-import 'package:recipe_app/utils/constants.dart';
-import 'package:recipe_app/widgets/custom_button.dart';
-import 'package:recipe_app/widgets/ingredient_item.dart';
+import 'package:proyecto_recetas/models/ingredient.dart';
+import 'package:proyecto_recetas/models/recipe.dart';
+import 'package:proyecto_recetas/models/user.dart';
+import 'package:proyecto_recetas/services/ai_service.dart';
+import 'package:proyecto_recetas/services/local_db_service.dart';
+import 'package:proyecto_recetas/services/constants.dart';
+import 'package:proyecto_recetas/widgets/custom_button.dart';
+import 'package:proyecto_recetas/widgets/ingredient_item.dart';
 import 'package:uuid/uuid.dart';
 
 class RecipeEditScreen extends StatefulWidget {
   final UserModel user;
   final String imagePath;
   final Recipe? recipe;
-  
+
   const RecipeEditScreen({
     Key? key,
     required this.user,
@@ -31,15 +31,15 @@ class _RecipeEditScreenState extends State<RecipeEditScreen> {
   final _titleController = TextEditingController();
   final _preparationController = TextEditingController();
   final _newIngredientController = TextEditingController();
-  
+
   List<Ingredient> _ingredients = [];
   bool _isLoading = true;
   bool _isSaving = false;
-  
+
   @override
   void initState() {
     super.initState();
-    
+
     if (widget.recipe != null) {
       _titleController.text = widget.recipe!.title;
       _preparationController.text = widget.recipe!.preparation;
@@ -51,7 +51,7 @@ class _RecipeEditScreenState extends State<RecipeEditScreen> {
       _analyzeImage();
     }
   }
-  
+
   @override
   void dispose() {
     _titleController.dispose();
@@ -59,14 +59,14 @@ class _RecipeEditScreenState extends State<RecipeEditScreen> {
     _newIngredientController.dispose();
     super.dispose();
   }
-  
+
   Future<void> _analyzeImage() async {
     try {
       final recipeInfo = await AIService().analyzeRecipeImage(
         widget.imagePath,
         widget.user.region,
       );
-      
+
       setState(() {
         _ingredients = recipeInfo['ingredients'] as List<Ingredient>;
         _preparationController.text = recipeInfo['preparation'] as String;
@@ -90,7 +90,7 @@ class _RecipeEditScreenState extends State<RecipeEditScreen> {
       }
     }
   }
-  
+
   void _toggleIngredient(Ingredient ingredient) {
     setState(() {
       final index = _ingredients.indexWhere((i) => i.id == ingredient.id);
@@ -104,7 +104,7 @@ class _RecipeEditScreenState extends State<RecipeEditScreen> {
       }
     });
   }
-  
+
   void _addIngredient() {
     if (_newIngredientController.text.trim().isNotEmpty) {
       setState(() {
@@ -120,22 +120,23 @@ class _RecipeEditScreenState extends State<RecipeEditScreen> {
       });
     }
   }
-  
+
   void _removeIngredient(Ingredient ingredient) {
     setState(() {
       _ingredients.removeWhere((i) => i.id == ingredient.id);
     });
   }
-  
+
   Future<void> _saveRecipe() async {
     if (_formKey.currentState!.validate()) {
       setState(() {
         _isSaving = true;
       });
-      
+
       try {
-        final selectedIngredients = _ingredients.where((i) => i.isSelected).toList();
-        
+        final selectedIngredients =
+            _ingredients.where((i) => i.isSelected).toList();
+
         if (selectedIngredients.isEmpty) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
@@ -148,7 +149,7 @@ class _RecipeEditScreenState extends State<RecipeEditScreen> {
           });
           return;
         }
-        
+
         if (widget.recipe != null) {
           // Actualiza receta existente
           final updatedRecipe = Recipe(
@@ -162,7 +163,7 @@ class _RecipeEditScreenState extends State<RecipeEditScreen> {
             appwriteId: widget.recipe!.appwriteId,
             isSynced: widget.recipe!.isSynced,
           );
-          
+
           await LocalDBService().updateRecipe(updatedRecipe);
         } else {
           // Crear nueva receta
@@ -174,7 +175,7 @@ class _RecipeEditScreenState extends State<RecipeEditScreen> {
             userId: widget.user.id,
           );
         }
-        
+
         if (mounted) {
           Navigator.of(context).pop(true);
         }
@@ -193,7 +194,7 @@ class _RecipeEditScreenState extends State<RecipeEditScreen> {
       }
     }
   }
-  
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
