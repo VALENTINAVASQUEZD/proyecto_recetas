@@ -1,9 +1,9 @@
 import 'package:hive/hive.dart';
-import 'package:recipe_app/models/ingredient.dart';
+import 'ingredient.dart';
 
 part 'recipe.g.dart';
 
-@HiveType(typeId: 2)
+@HiveType(typeId: 3)
 class Recipe extends HiveObject {
   @HiveField(0)
   final String id;

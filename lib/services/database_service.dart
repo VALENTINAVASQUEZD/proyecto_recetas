@@ -1,23 +1,30 @@
 import 'package:hive_flutter/hive_flutter.dart';
-import 'package:recipe_app/models/recipe.dart';
-import 'package:recipe_app/models/ingredient.dart';
-import 'package:recipe_app/models/user.dart';
 import 'package:uuid/uuid.dart';
+import '../models/user.dart';
+import '../models/recipe.dart';
+import '../models/ingredient.dart';
 
-class LocalDBService {
-  static final LocalDBService _instance = LocalDBService._internal();
+class DatabaseService {
+  static final DatabaseService _instance = DatabaseService._internal();
+  factory DatabaseService() => _instance;
+  DatabaseService._internal();
   
-  factory LocalDBService() {
-    return _instance;
+  late Box<UserModel> _usersBox;
+  late Box<Recipe> _recipesBox;
+  late Box _settingsBox;
+  
+  Future<void> initialize() async {
+    await Hive.initFlutter();
+    
+    Hive.registerAdapter(UserModelAdapter());
+    Hive.registerAdapter(RecipeAdapter());
+    Hive.registerAdapter(IngredientAdapter());
+    
+    _usersBox = await Hive.openBox<UserModel>('users');
+    _recipesBox = await Hive.openBox<Recipe>('recipes');
+    _settingsBox = await Hive.openBox('settings');
   }
   
-  LocalDBService._internal();
-  
-  final _recipesBox = Hive.box<Recipe>('recipes');
-  final _ingredientsBox = Hive.box<Ingredient>('ingredients');
-  final _usersBox = Hive.box<UserModel>('users');
-  final _settingsBox = Hive.box('settings');
-
   Future<UserModel> createUser(String username, String password, String region) async {
     final user = UserModel(
       id: const Uuid().v4(),
@@ -37,10 +44,6 @@ class LocalDBService {
   
   Future<void> updateUser(UserModel user) async {
     await _usersBox.put(user.id, user);
-  }
-  
-  Future<void> deleteUser(String userId) async {
-    await _usersBox.delete(userId);
   }
   
   Future<Recipe> createRecipe({
@@ -76,57 +79,40 @@ class LocalDBService {
     await _recipesBox.delete(recipeId);
   }
   
-  Future<Ingredient> createIngredient(String name, {bool isAIGenerated = false}) async {
-    final ingredient = Ingredient(
-      id: const Uuid().v4(),
-      name: name,
-      isAIGenerated: isAIGenerated,
-    );
-    
-    await _ingredientsBox.put(ingredient.id, ingredient);
-    return ingredient;
+  Future<void> saveCurrentUser(String userId) async {
+    await _settingsBox.put('currentUserId', userId);
   }
   
-  List<Ingredient> getMostUsedIngredients(String userId, {int limit = 10}) {
+  String? getCurrentUserId() {
+    return _settingsBox.get('currentUserId');
+  }
+  
+  Future<void> clearCurrentUser() async {
+    await _settingsBox.delete('currentUserId');
+  }
+  
+  Map<String, int> getMostUsedIngredients(String userId, {int limit = 10}) {
     final userRecipes = getUserRecipes(userId);
     final Map<String, int> ingredientCount = {};
     
     for (final recipe in userRecipes) {
       for (final ingredient in recipe.ingredients) {
         if (ingredient.isSelected) {
-          if (ingredientCount.containsKey(ingredient.name)) {
-            ingredientCount[ingredient.name] = (ingredientCount[ingredient.name] ?? 0) + 1;
-          } else {
-            ingredientCount[ingredient.name] = 1;
-          }
+          ingredientCount[ingredient.name] = (ingredientCount[ingredient.name] ?? 0) + 1;
         }
       }
     }
     
-    final sortedIngredients = ingredientCount.entries.toList()
+    final sortedEntries = ingredientCount.entries.toList()
       ..sort((a, b) => b.value.compareTo(a.value));
     
-    final topIngredients = sortedIngredients.take(limit).map((entry) {
-      return Ingredient(
-        id: const Uuid().v4(),
-        name: entry.key,
-        isSelected: true,
-      );
-    }).toList();
-    
-    return topIngredients;
+    return Map.fromEntries(sortedEntries.take(limit));
   }
   
   Map<String, int> getWeeklyRecipeCount(String userId) {
     final userRecipes = getUserRecipes(userId);
     final Map<String, int> weekdayCounts = {
-      'Lunes': 0,
-      'Martes': 0,
-      'Miércoles': 0,
-      'Jueves': 0,
-      'Viernes': 0,
-      'Sábado': 0,
-      'Domingo': 0,
+      'Lun': 0, 'Mar': 0, 'Mié': 0, 'Jue': 0, 'Vie': 0, 'Sáb': 0, 'Dom': 0,
     };
     
     final now = DateTime.now();
@@ -144,26 +130,14 @@ class LocalDBService {
   
   String _getWeekdayName(int weekday) {
     switch (weekday) {
-      case 1: return 'Lunes';
-      case 2: return 'Martes';
-      case 3: return 'Miércoles';
-      case 4: return 'Jueves';
-      case 5: return 'Viernes';
-      case 6: return 'Sábado';
-      case 7: return 'Domingo';
+      case 1: return 'Lun';
+      case 2: return 'Mar';
+      case 3: return 'Mié';
+      case 4: return 'Jue';
+      case 5: return 'Vie';
+      case 6: return 'Sáb';
+      case 7: return 'Dom';
       default: return '';
     }
-  }
-  
-  Future<void> saveCurrentUser(String userId) async {
-    await _settingsBox.put('currentUserId', userId);
-  }
-  
-  String? getCurrentUserId() {
-    return _settingsBox.get('currentUserId');
-  }
-  
-  Future<void> clearCurrentUser() async {
-    await _settingsBox.delete('currentUserId');
   }
 }
