@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:proyecto_recetas/screens/recipes/my_recipes_screen.dart';
-import 'package:proyecto_recetas/services/local_db_service.dart';
-import 'package:proyecto_recetas/services/constants.dart';
-import 'package:proyecto_recetas/widgets/custom_button.dart';
+import '../../services/database_service.dart';
+import '../../services/appwrite_service.dart';
+import '../../services/constants.dart';
+import '../recipes/my_recipes_screen.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({Key? key}) : super(key: key);
@@ -18,7 +18,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _confirmPasswordController = TextEditingController();
   String _selectedRegion = ColombiaRegions.regions.first;
   bool _isLoading = false;
-
+  
   @override
   void dispose() {
     _usernameController.dispose();
@@ -26,17 +26,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
     _confirmPasswordController.dispose();
     super.dispose();
   }
-
+  
   Future<void> _register() async {
     if (_formKey.currentState!.validate()) {
       setState(() {
         _isLoading = true;
       });
-
+      
       try {
-        final existingUser =
-            LocalDBService().getUserByUsername(_usernameController.text);
-
+        final existingUser = DatabaseService().getUserByUsername(_usernameController.text);
+        
         if (existingUser != null) {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
@@ -46,21 +45,25 @@ class _RegisterScreenState extends State<RegisterScreen> {
               ),
             );
           }
+          setState(() {
+            _isLoading = false;
+          });
           return;
         }
-
-        final user = await LocalDBService().createUser(
+        
+        final user = await DatabaseService().createUser(
           _usernameController.text,
           _passwordController.text,
           _selectedRegion,
         );
-
-        await LocalDBService().saveCurrentUser(user.id);
-
+        
+        await AppwriteService().syncUser(user);
+        await DatabaseService().saveCurrentUser(user.id);
+        
         if (mounted) {
           Navigator.of(context).pushReplacement(
             MaterialPageRoute(
-              builder: (context) => MyRecipesScreen(user: user),
+              builder: (context) => MyRecipesScreen(userId: user.id),
             ),
           );
         }
@@ -82,13 +85,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
       }
     }
   }
-
+  
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Registro'),
-      ),
+      appBar: AppBar(title: const Text('Registro')),
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
@@ -102,11 +103,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   const Text(
                     'Crea tu cuenta',
                     textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.text,
-                    ),
+                    style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.black87),
                   ),
                   const SizedBox(height: 32),
                   TextFormField(
@@ -188,10 +185,19 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     },
                   ),
                   const SizedBox(height: 24),
-                  CustomButton(
-                    text: 'Registrarse',
-                    isLoading: _isLoading,
-                    onPressed: _register,
+                  SizedBox(
+                    width: double.infinity,
+                    height: 48,
+                    child: ElevatedButton(
+                      onPressed: _isLoading ? null : _register,
+                      child: _isLoading
+                          ? const SizedBox(
+                              width: 24,
+                              height: 24,
+                              child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                            )
+                          : const Text('Registrarse'),
+                    ),
                   ),
                   const SizedBox(height: 16),
                   TextButton(
@@ -200,7 +206,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     },
                     child: const Text(
                       '¿Ya tienes una cuenta? Inicia sesión',
-                      style: TextStyle(color: AppColors.primary),
+                      style: TextStyle(color: Colors.green),
                     ),
                   ),
                 ],

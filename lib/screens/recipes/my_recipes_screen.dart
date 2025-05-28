@@ -1,23 +1,17 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:proyecto_recetas/models/recipe.dart';
-import 'package:proyecto_recetas/models/user.dart';
-import 'package:proyecto_recetas/screens/auth/login_screen.dart';
-import 'package:proyecto_recetas/screens/profile/profile_screen.dart';
-import 'package:proyecto_recetas/screens/recipes/camera_screen.dart';
-import 'package:proyecto_recetas/screens/recipes/recipe_detail_screen.dart';
-import 'package:proyecto_recetas/screens/statistics/statistics_screen.dart';
-import 'package:proyecto_recetas/services/local_db_service.dart';
-import 'package:proyecto_recetas/services/constants.dart';
-import 'package:proyecto_recetas/widgets/recipe_card.dart';
+import '../../models/recipe.dart';
+import '../../services/database_service.dart';
+import '../auth/login_screen.dart';
+import '../profile/profile_screen.dart';
+import '../statistics/statistics_screen.dart';
+import 'camera_screen.dart';
+import 'recipe_detail_screen.dart';
 
 class MyRecipesScreen extends StatefulWidget {
-  final UserModel user;
-
-  const MyRecipesScreen({
-    Key? key,
-    required this.user,
-  }) : super(key: key);
+  final String userId;
+  
+  const MyRecipesScreen({Key? key, required this.userId}) : super(key: key);
 
   @override
   State<MyRecipesScreen> createState() => _MyRecipesScreenState();
@@ -32,86 +26,46 @@ class _MyRecipesScreenState extends State<MyRecipesScreen> {
     super.initState();
     _loadRecipes();
   }
-
+  
   Future<void> _loadRecipes() async {
     setState(() {
       _isLoading = true;
     });
-
+    
     try {
-      final recipes = LocalDBService().getUserRecipes(widget.user.id);
+      final recipes = DatabaseService().getUserRecipes(widget.userId);
       setState(() {
         _recipes = recipes;
       });
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error al cargar recetas: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error al cargar recetas: $e')),
+      );
     } finally {
       setState(() {
         _isLoading = false;
       });
     }
   }
-
+  
   Future<void> _deleteRecipe(Recipe recipe) async {
     try {
-      await LocalDBService().deleteRecipe(recipe.id);
-
-      // Si hay una imagen, eliminarla
+      await DatabaseService().deleteRecipe(recipe.id);
+      
       final file = File(recipe.imagePath);
       if (await file.exists()) {
         await file.delete();
       }
-
-      setState(() {
-        _recipes.removeWhere((r) => r.id == recipe.id);
-      });
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Receta eliminada correctamente'),
-          ),
-        );
-      }
+      
+      _loadRecipes();
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Receta eliminada')),
+      );
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error al eliminar receta: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    }
-  }
-
-  Future<void> _logout() async {
-    try {
-      await LocalDBService().clearCurrentUser();
-
-      if (mounted) {
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(
-            builder: (context) => const LoginScreen(),
-          ),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error al cerrar sesión: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error al eliminar: $e')),
+      );
     }
   }
 
@@ -120,13 +74,14 @@ class _MyRecipesScreenState extends State<MyRecipesScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Mis Recetas'),
+        automaticallyImplyLeading: false,
         actions: [
           IconButton(
             icon: const Icon(Icons.bar_chart),
             onPressed: () {
               Navigator.of(context).push(
                 MaterialPageRoute(
-                  builder: (context) => StatisticsScreen(user: widget.user),
+                  builder: (context) => StatisticsScreen(userId: widget.userId),
                 ),
               );
             },
@@ -136,96 +91,80 @@ class _MyRecipesScreenState extends State<MyRecipesScreen> {
             onPressed: () {
               Navigator.of(context).push(
                 MaterialPageRoute(
-                  builder: (context) => ProfileScreen(user: widget.user),
+                  builder: (context) => ProfileScreen(userId: widget.userId),
                 ),
               );
             },
           ),
           IconButton(
             icon: const Icon(Icons.logout),
-            onPressed: _logout,
+            onPressed: () async {
+              await DatabaseService().clearCurrentUser();
+              Navigator.of(context).pushReplacement(
+                MaterialPageRoute(
+                  builder: (context) => const LoginScreen(),
+                ),
+              );
+            },
           ),
         ],
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _recipes.isEmpty
-              ? Center(
+              ? const Center(
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Icon(
-                        Icons.restaurant,
-                        size: 80,
-                        color: AppColors.textLight,
-                      ),
-                      const SizedBox(height: 16),
-                      const Text(
-                        'No tienes recetas',
-                        style: TextStyle(
-                          fontSize: 18,
-                          color: AppColors.textLight,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      const Text(
-                        'Toma una foto para crear tu primera receta',
-                        style: TextStyle(
-                          color: AppColors.textLight,
-                        ),
-                      ),
-                      const SizedBox(height: 24),
-                      ElevatedButton.icon(
-                        onPressed: () async {
-                          final result = await Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (context) =>
-                                  CameraScreen(user: widget.user),
-                            ),
-                          );
-
-                          if (result == true) {
-                            _loadRecipes();
-                          }
-                        },
-                        icon: const Icon(Icons.camera_alt),
-                        label: const Text('Tomar Foto'),
-                      ),
+                      Icon(Icons.restaurant, size: 80, color: Colors.grey),
+                      SizedBox(height: 16),
+                      Text('No tienes recetas', style: TextStyle(fontSize: 18, color: Colors.grey)),
+                      SizedBox(height: 8),
+                      Text('Toma una foto para crear tu primera receta', style: TextStyle(color: Colors.grey)),
                     ],
                   ),
                 )
               : RefreshIndicator(
                   onRefresh: _loadRecipes,
-                  child: GridView.builder(
+                  child: ListView.builder(
                     padding: const EdgeInsets.all(16),
-                    gridDelegate:
-                        const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 2,
-                      childAspectRatio: 0.75,
-                      crossAxisSpacing: 16,
-                      mainAxisSpacing: 16,
-                    ),
                     itemCount: _recipes.length,
                     itemBuilder: (context, index) {
                       final recipe = _recipes[index];
-                      return RecipeCard(
-                        recipe: recipe,
-                        onTap: () async {
-                          final result = await Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (context) =>
-                                  RecipeDetailScreen(recipe: recipe),
+                      final selectedIngredients = recipe.ingredients.where((i) => i.isSelected).length;
+                      
+                      return Card(
+                        margin: const EdgeInsets.only(bottom: 16),
+                        child: ListTile(
+                          leading: ClipRRect(
+                            borderRadius: BorderRadius.circular(8),
+                            child: Image.file(
+                              File(recipe.imagePath),
+                              width: 60,
+                              height: 60,
+                              fit: BoxFit.cover,
                             ),
-                          );
-
-                          if (result == true) {
-                            _loadRecipes();
-                          }
-                        },
-                        onEdit: () async {
-                          _loadRecipes();
-                        },
-                        onDelete: () => _deleteRecipe(recipe),
+                          ),
+                          title: Text(recipe.title),
+                          subtitle: Text('$selectedIngredients ingredientes'),
+                          trailing: PopupMenuButton(
+                            itemBuilder: (context) => [
+                              const PopupMenuItem(value: 'delete', child: Text('Eliminar')),
+                            ],
+                            onSelected: (value) {
+                              if (value == 'delete') {
+                                _deleteRecipe(recipe);
+                              }
+                            },
+                          ),
+                          onTap: () {
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (context) => RecipeDetailScreen(recipe: recipe),
+                              ),
+                            );
+                          },
+                        ),
                       );
                     },
                   ),
@@ -234,15 +173,15 @@ class _MyRecipesScreenState extends State<MyRecipesScreen> {
         onPressed: () async {
           final result = await Navigator.of(context).push(
             MaterialPageRoute(
-              builder: (context) => CameraScreen(user: widget.user),
+              builder: (context) => CameraScreen(userId: widget.userId),
             ),
           );
-
+          
           if (result == true) {
             _loadRecipes();
           }
         },
-        backgroundColor: AppColors.primary,
+        backgroundColor: Colors.green,
         child: const Icon(Icons.add_a_photo),
       ),
     );

@@ -1,255 +1,210 @@
 import 'dart:io';
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:proyecto_recetas/models/user.dart';
-import 'package:proyecto_recetas/screens/recipes/recipe_edit_screen.dart';
+import '../../main.dart';
+import 'recipe_edit_screen.dart';
 
 class CameraScreen extends StatefulWidget {
-  final UserModel user;
-
-  const CameraScreen({
-    Key? key,
-    required this.user,
-  }) : super(key: key);
+  final String userId;
+  
+  const CameraScreen({Key? key, required this.userId}) : super(key: key);
 
   @override
   State<CameraScreen> createState() => _CameraScreenState();
 }
 
-class _CameraScreenState extends State<CameraScreen>
-    with WidgetsBindingObserver {
+class _CameraScreenState extends State<CameraScreen> {
   CameraController? _controller;
   bool _isCameraInitialized = false;
-  bool _isRearCameraSelected = true;
   File? _imageFile;
   bool _isLoading = false;
-
+  
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addObserver(this);
     _initializeCamera();
   }
-
+  
   @override
   void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
     _controller?.dispose();
     super.dispose();
   }
-
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    final CameraController? cameraController = _controller;
-
-    if (cameraController == null || !cameraController.value.isInitialized) {
-      return;
-    }
-
-    if (state == AppLifecycleState.inactive) {
-      cameraController.dispose();
-    } else if (state == AppLifecycleState.resumed) {
-      _initializeCamera();
-    }
-  }
-
+  
   Future<void> _initializeCamera() async {
-    final cameras = await availableCameras();
-
     if (cameras.isEmpty) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('No se encontraron cámaras disponibles'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No se encontraron cámaras')),
+      );
       return;
     }
-
-    final camera = _isRearCameraSelected
-        ? cameras.firstWhere(
-            (camera) => camera.lensDirection == CameraLensDirection.back,
-            orElse: () => cameras.first,
-          )
-        : cameras.firstWhere(
-            (camera) => camera.lensDirection == CameraLensDirection.front,
-            orElse: () => cameras.first,
-          );
-
-    final controller = CameraController(
-      camera,
-      ResolutionPreset.high,
-      enableAudio: false,
-    );
-
+    
+    final camera = cameras.first;
+    final controller = CameraController(camera, ResolutionPreset.high, enableAudio: false);
     _controller = controller;
-
+    
     try {
       await controller.initialize();
-
       if (mounted) {
         setState(() {
           _isCameraInitialized = true;
         });
       }
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error al inicializar la cámara: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error al inicializar cámara: $e')),
+      );
     }
   }
-
+  
   Future<void> _takePicture() async {
-    final CameraController? cameraController = _controller;
-
-    if (cameraController == null || !cameraController.value.isInitialized) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Selecciona una cámara primero'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
+    if (_controller == null || !_controller!.value.isInitialized || _controller!.value.isTakingPicture) {
       return;
     }
-
-    if (cameraController.value.isTakingPicture) {
-      return;
-    }
-
+    
     try {
       setState(() {
         _isLoading = true;
       });
-
-      final XFile photo = await cameraController.takePicture();
-
-      // Guardar la imagen en un directorio temporal
+      
+      final XFile photo = await _controller!.takePicture();
+      await _saveImage(photo.path);
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error al tomar foto: $e')),
+      );
+    }
+  }
+  
+  Future<void> _pickFromGallery() async {
+    try {
+      setState(() {
+        _isLoading = true;
+      });
+      
+      final ImagePicker picker = ImagePicker();
+      final XFile? image = await picker.pickImage(source: ImageSource.gallery);
+      
+      if (image != null) {
+        await _saveImage(image.path);
+      } else {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error al seleccionar imagen: $e')),
+      );
+    }
+  }
+  
+  Future<void> _saveImage(String imagePath) async {
+    try {
       final Directory appDir = await getApplicationDocumentsDirectory();
       final String dirPath = '${appDir.path}/RecetasIA/Images';
       await Directory(dirPath).create(recursive: true);
-      final String filePath =
-          '$dirPath/${DateTime.now().millisecondsSinceEpoch}.jpg';
-
-      await File(photo.path).copy(filePath);
-
+      final String filePath = '$dirPath/${DateTime.now().millisecondsSinceEpoch}.jpg';
+      
+      await File(imagePath).copy(filePath);
+      
       setState(() {
         _imageFile = File(filePath);
         _isLoading = false;
       });
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error al tomar la foto: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-        setState(() {
-          _isLoading = false;
-        });
-      }
+      setState(() {
+        _isLoading = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error al guardar imagen: $e')),
+      );
     }
   }
-
+  
   void _resetImage() {
     setState(() {
       _imageFile = null;
     });
   }
-
+  
   void _acceptImage() {
     if (_imageFile != null) {
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(
           builder: (context) => RecipeEditScreen(
-            user: widget.user,
             imagePath: _imageFile!.path,
+            userId: widget.userId,
           ),
         ),
       );
     }
   }
-
-  void _switchCamera() {
-    setState(() {
-      _isRearCameraSelected = !_isRearCameraSelected;
-      _isCameraInitialized = false;
-    });
-    _initializeCamera();
-  }
-
+  
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Tomar Foto'),
+        title: const Text('Agregar Foto'),
         actions: [
-          if (_isCameraInitialized && _imageFile == null)
-            IconButton(
-              icon: const Icon(Icons.flip_camera_ios),
-              onPressed: _switchCamera,
-            ),
+          IconButton(
+            icon: const Icon(Icons.photo_library),
+            onPressed: _pickFromGallery,
+            tooltip: 'Seleccionar de galería',
+          ),
         ],
       ),
       body: _imageFile != null ? _buildImagePreview() : _buildCameraPreview(),
     );
   }
-
+  
   Widget _buildCameraPreview() {
     if (!_isCameraInitialized) {
-      return const Center(
-        child: CircularProgressIndicator(),
-      );
+      return const Center(child: CircularProgressIndicator());
     }
-
+    
     return Column(
       children: [
-        Expanded(
-          child: AspectRatio(
-            aspectRatio: 1 / _controller!.value.aspectRatio,
-            child: CameraPreview(_controller!),
-          ),
-        ),
+        Expanded(child: CameraPreview(_controller!)),
         Container(
-          height: 100,
+          height: 120,
           width: double.infinity,
           color: Colors.black,
-          child: Center(
-            child: _isLoading
-                ? const CircularProgressIndicator(color: Colors.white)
-                : IconButton(
-                    onPressed: _takePicture,
-                    icon: const Icon(
-                      Icons.camera,
-                      color: Colors.white,
-                      size: 50,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: [
+              IconButton(
+                onPressed: _pickFromGallery,
+                icon: const Icon(Icons.photo_library, color: Colors.white, size: 30),
+                tooltip: 'Galería',
+              ),
+              _isLoading
+                  ? const CircularProgressIndicator(color: Colors.white)
+                  : IconButton(
+                      onPressed: _takePicture,
+                      icon: const Icon(Icons.camera, color: Colors.white, size: 50),
+                      tooltip: 'Tomar foto',
                     ),
-                  ),
+              const SizedBox(width: 50), // Espacio para balance visual
+            ],
           ),
         ),
       ],
     );
   }
-
+  
   Widget _buildImagePreview() {
     return Column(
       children: [
-        Expanded(
-          child: Image.file(
-            _imageFile!,
-            fit: BoxFit.contain,
-          ),
-        ),
+        Expanded(child: Image.file(_imageFile!, fit: BoxFit.contain)),
         Container(
           height: 100,
           width: double.infinity,
@@ -259,19 +214,13 @@ class _CameraScreenState extends State<CameraScreen>
             children: [
               IconButton(
                 onPressed: _resetImage,
-                icon: const Icon(
-                  Icons.close,
-                  color: Colors.white,
-                  size: 40,
-                ),
+                icon: const Icon(Icons.close, color: Colors.white, size: 40),
+                tooltip: 'Cancelar',
               ),
               IconButton(
                 onPressed: _acceptImage,
-                icon: const Icon(
-                  Icons.check,
-                  color: Colors.white,
-                  size: 40,
-                ),
+                icon: const Icon(Icons.check, color: Colors.white, size: 40),
+                tooltip: 'Aceptar',
               ),
             ],
           ),

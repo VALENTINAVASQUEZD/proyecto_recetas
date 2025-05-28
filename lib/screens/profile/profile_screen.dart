@@ -2,18 +2,14 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:proyecto_recetas/models/user.dart';
-import 'package:proyecto_recetas/services/local_db_service.dart';
-import 'package:proyecto_recetas/services/constants.dart';
-import 'package:proyecto_recetas/widgets/custom_button.dart';
+import '../../models/user.dart';
+import '../../services/database_service.dart';
+import '../../services/constants.dart';
 
 class ProfileScreen extends StatefulWidget {
-  final UserModel user;
-
-  const ProfileScreen({
-    Key? key,
-    required this.user,
-  }) : super(key: key);
+  final String userId;
+  
+  const ProfileScreen({Key? key, required this.userId}) : super(key: key);
 
   @override
   State<ProfileScreen> createState() => _ProfileScreenState();
@@ -24,19 +20,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
   final _usernameController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
-
+  
   String _selectedRegion = ColombiaRegions.regions.first;
   String? _profileImagePath;
   bool _isLoading = false;
-
+  UserModel? _currentUser;
+  
   @override
   void initState() {
     super.initState();
-    _usernameController.text = widget.user.username;
-    _selectedRegion = widget.user.region;
-    _profileImagePath = widget.user.profileImagePath;
+    _loadUserData();
   }
-
+  
   @override
   void dispose() {
     _usernameController.dispose();
@@ -44,92 +39,97 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _confirmPasswordController.dispose();
     super.dispose();
   }
-
+  
+  Future<void> _loadUserData() async {
+    try {
+      // Buscar el usuario actual en la base de datos
+      final allUsers = DatabaseService().getAllUsers();
+      _currentUser = allUsers.firstWhere(
+        (user) => user.id == widget.userId,
+        orElse: () => UserModel(
+          id: widget.userId,
+          username: 'Usuario',
+          password: '',
+          region: ColombiaRegions.regions.first,
+        ),
+      );
+      
+      setState(() {
+        _usernameController.text = _currentUser!.username;
+        _selectedRegion = _currentUser!.region;
+        _profileImagePath = _currentUser!.profileImagePath;
+      });
+    } catch (e) {
+      print('Error cargando datos del usuario: $e');
+    }
+  }
+  
   Future<void> _pickImage() async {
     try {
       final ImagePicker picker = ImagePicker();
       final XFile? image = await picker.pickImage(source: ImageSource.gallery);
-
+      
       if (image != null) {
-        // Guardar la imagen en un directorio de la aplicación
         final Directory appDir = await getApplicationDocumentsDirectory();
         final String dirPath = '${appDir.path}/RecetasIA/Profiles';
         await Directory(dirPath).create(recursive: true);
-        final String filePath =
-            '$dirPath/${DateTime.now().millisecondsSinceEpoch}.jpg';
-
+        final String filePath = '$dirPath/${DateTime.now().millisecondsSinceEpoch}.jpg';
+        
         await File(image.path).copy(filePath);
-
+        
         setState(() {
           _profileImagePath = filePath;
         });
       }
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error al seleccionar imagen: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error al seleccionar imagen: $e')),
+      );
     }
   }
-
+  
   Future<void> _updateProfile() async {
     if (_formKey.currentState!.validate()) {
       setState(() {
         _isLoading = true;
       });
-
+      
       try {
-        final updatedUser = UserModel(
-          id: widget.user.id,
-          username: _usernameController.text,
-          password: _passwordController.text.isNotEmpty
-              ? _passwordController.text
-              : widget.user.password,
-          region: _selectedRegion,
-          profileImagePath: _profileImagePath,
-          appwriteId: widget.user.appwriteId,
-        );
-
-        await LocalDBService().updateUser(updatedUser);
-
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Perfil actualizado correctamente'),
-              backgroundColor: AppColors.primary,
-            ),
+        if (_currentUser != null) {
+          final updatedUser = UserModel(
+            id: _currentUser!.id,
+            username: _usernameController.text,
+            password: _passwordController.text.isNotEmpty 
+                ? _passwordController.text 
+                : _currentUser!.password,
+            region: _selectedRegion,
+            profileImagePath: _profileImagePath,
+            appwriteId: _currentUser!.appwriteId,
           );
-          Navigator.of(context).pop(updatedUser);
+          
+          await DatabaseService().updateUser(updatedUser);
+          
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Perfil actualizado correctamente')),
+          );
+          Navigator.of(context).pop();
         }
       } catch (e) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Error al actualizar perfil: $e'),
-              backgroundColor: Colors.red,
-            ),
-          );
-        }
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error al actualizar: $e')),
+        );
       } finally {
-        if (mounted) {
-          setState(() {
-            _isLoading = false;
-          });
-        }
+        setState(() {
+          _isLoading = false;
+        });
       }
     }
   }
-
+  
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Mi Perfil'),
-      ),
+      appBar: AppBar(title: const Text('Mi Perfil')),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Form(
@@ -143,16 +143,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   children: [
                     CircleAvatar(
                       radius: 60,
-                      backgroundColor: AppColors.background,
-                      backgroundImage: _profileImagePath != null
-                          ? FileImage(File(_profileImagePath!))
-                          : null,
+                      backgroundColor: Colors.grey[300],
+                      backgroundImage: _profileImagePath != null ? FileImage(File(_profileImagePath!)) : null,
                       child: _profileImagePath == null
-                          ? const Icon(
-                              Icons.person,
-                              size: 60,
-                              color: AppColors.textLight,
-                            )
+                          ? const Icon(Icons.person, size: 60, color: Colors.grey)
                           : null,
                     ),
                     Positioned(
@@ -161,14 +155,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       child: Container(
                         padding: const EdgeInsets.all(4),
                         decoration: const BoxDecoration(
-                          color: AppColors.primary,
+                          color: Colors.green,
                           shape: BoxShape.circle,
                         ),
-                        child: const Icon(
-                          Icons.camera_alt,
-                          color: Colors.white,
-                          size: 20,
-                        ),
+                        child: const Icon(Icons.camera_alt, color: Colors.white, size: 20),
                       ),
                     ),
                   ],
@@ -239,18 +229,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     _selectedRegion = value!;
                   });
                 },
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Por favor selecciona una región';
-                  }
-                  return null;
-                },
               ),
               const SizedBox(height: 24),
-              CustomButton(
-                text: 'Guardar Cambios',
-                isLoading: _isLoading,
-                onPressed: _updateProfile,
+              SizedBox(
+                width: double.infinity,
+                height: 48,
+                child: ElevatedButton(
+                  onPressed: _isLoading ? null : _updateProfile,
+                  child: _isLoading
+                      ? const CircularProgressIndicator(color: Colors.white)
+                      : const Text('Guardar Cambios'),
+                ),
               ),
             ],
           ),

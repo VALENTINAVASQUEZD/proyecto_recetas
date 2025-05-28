@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:proyecto_recetas/screens/auth/register_screen.dart';
-import 'package:proyecto_recetas/screens/recipes/my_recipes_screen.dart';
-import 'package:proyecto_recetas/services/local_db_service.dart';
-import 'package:proyecto_recetas/services/constants.dart';
-import 'package:proyecto_recetas/widgets/custom_button.dart';
+import '../../services/database_service.dart';
+import '../recipes/my_recipes_screen.dart';
+import 'register_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({Key? key}) : super(key: key);
@@ -17,31 +15,30 @@ class _LoginScreenState extends State<LoginScreen> {
   final _usernameController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _isLoading = false;
-
+  
   @override
   void dispose() {
     _usernameController.dispose();
     _passwordController.dispose();
     super.dispose();
   }
-
+  
   Future<void> _login() async {
     if (_formKey.currentState!.validate()) {
       setState(() {
         _isLoading = true;
       });
-
+      
       try {
-        final user =
-            LocalDBService().getUserByUsername(_usernameController.text);
-
+        final user = DatabaseService().getUserByUsername(_usernameController.text);
+        
         if (user != null && user.password == _passwordController.text) {
-          await LocalDBService().saveCurrentUser(user.id);
-
+          await DatabaseService().saveCurrentUser(user.id);
+          
           if (mounted) {
             Navigator.of(context).pushReplacement(
               MaterialPageRoute(
-                builder: (context) => MyRecipesScreen(user: user),
+                builder: (context) => MyRecipesScreen(userId: user.id),
               ),
             );
           }
@@ -73,7 +70,7 @@ class _LoginScreenState extends State<LoginScreen> {
       }
     }
   }
-
+  
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -87,29 +84,18 @@ class _LoginScreenState extends State<LoginScreen> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  const Icon(
-                    Icons.restaurant,
-                    size: 80,
-                    color: AppColors.primary,
-                  ),
+                  const Icon(Icons.restaurant, size: 80, color: Colors.green),
                   const SizedBox(height: 24),
                   const Text(
                     'Recetas IA',
                     textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 28,
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.text,
-                    ),
+                    style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Colors.black87),
                   ),
                   const SizedBox(height: 8),
                   const Text(
                     'Inicia sesión para continuar',
                     textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 16,
-                      color: AppColors.textLight,
-                    ),
+                    style: TextStyle(fontSize: 16, color: Colors.grey),
                   ),
                   const SizedBox(height: 32),
                   TextFormField(
@@ -143,23 +129,30 @@ class _LoginScreenState extends State<LoginScreen> {
                     },
                   ),
                   const SizedBox(height: 24),
-                  CustomButton(
-                    text: 'Iniciar Sesión',
-                    isLoading: _isLoading,
-                    onPressed: _login,
+                  SizedBox(
+                    width: double.infinity,
+                    height: 48,
+                    child: ElevatedButton(
+                      onPressed: _isLoading ? null : _login,
+                      child: _isLoading
+                          ? const SizedBox(
+                              width: 24,
+                              height: 24,
+                              child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                            )
+                          : const Text('Iniciar Sesión'),
+                    ),
                   ),
                   const SizedBox(height: 16),
                   TextButton(
                     onPressed: () {
                       Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (context) => const RegisterScreen(),
-                        ),
+                        MaterialPageRoute(builder: (context) => const RegisterScreen()),
                       );
                     },
                     child: const Text(
                       '¿No tienes una cuenta? Regístrate',
-                      style: TextStyle(color: AppColors.primary),
+                      style: TextStyle(color: Colors.green),
                     ),
                   ),
                 ],

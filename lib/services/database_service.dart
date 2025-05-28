@@ -25,6 +25,7 @@ class DatabaseService {
     _settingsBox = await Hive.openBox('settings');
   }
   
+
   Future<UserModel> createUser(String username, String password, String region) async {
     final user = UserModel(
       id: const Uuid().v4(),
@@ -45,7 +46,11 @@ class DatabaseService {
   Future<void> updateUser(UserModel user) async {
     await _usersBox.put(user.id, user);
   }
-  
+
+  List<UserModel> getAllUsers() {
+    return _usersBox.values.toList();
+  }
+
   Future<Recipe> createRecipe({
     required String title,
     required String imagePath,
@@ -78,7 +83,7 @@ class DatabaseService {
   Future<void> deleteRecipe(String recipeId) async {
     await _recipesBox.delete(recipeId);
   }
-  
+
   Future<void> saveCurrentUser(String userId) async {
     await _settingsBox.put('currentUserId', userId);
   }
@@ -91,6 +96,7 @@ class DatabaseService {
     await _settingsBox.delete('currentUserId');
   }
   
+
   Map<String, int> getMostUsedIngredients(String userId, {int limit = 10}) {
     final userRecipes = getUserRecipes(userId);
     final Map<String, int> ingredientCount = {};

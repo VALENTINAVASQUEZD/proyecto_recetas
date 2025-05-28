@@ -1,57 +1,36 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:proyecto_recetas/models/ingredient.dart';
-import 'package:proyecto_recetas/models/recipe.dart';
-import 'package:proyecto_recetas/models/user.dart';
-import 'package:proyecto_recetas/services/ai_service.dart';
-import 'package:proyecto_recetas/services/local_db_service.dart';
-import 'package:proyecto_recetas/services/constants.dart';
-import 'package:proyecto_recetas/widgets/custom_button.dart';
-import 'package:proyecto_recetas/widgets/ingredient_item.dart';
-import 'package:uuid/uuid.dart';
+import '../../models/ingredient.dart';
+import '../../services/ai_service.dart';
+import '../../services/database_service.dart';
+import '../../services/appwrite_service.dart';
 
 class RecipeEditScreen extends StatefulWidget {
-  final UserModel user;
   final String imagePath;
-  final Recipe? recipe;
-
-  const RecipeEditScreen({
-    Key? key,
-    required this.user,
-    required this.imagePath,
-    this.recipe,
-  }) : super(key: key);
+  final String userId;
+  
+  const RecipeEditScreen({Key? key, required this.imagePath, required this.userId}) : super(key: key);
 
   @override
   State<RecipeEditScreen> createState() => _RecipeEditScreenState();
 }
 
 class _RecipeEditScreenState extends State<RecipeEditScreen> {
-  final _formKey = GlobalKey<FormState>();
   final _titleController = TextEditingController();
   final _preparationController = TextEditingController();
   final _newIngredientController = TextEditingController();
-
+  
   List<Ingredient> _ingredients = [];
   bool _isLoading = true;
   bool _isSaving = false;
-
+  String _userRegion = 'Región Andina';
+  
   @override
   void initState() {
     super.initState();
-
-    if (widget.recipe != null) {
-      _titleController.text = widget.recipe!.title;
-      _preparationController.text = widget.recipe!.preparation;
-      _ingredients = List.from(widget.recipe!.ingredients);
-      setState(() {
-        _isLoading = false;
-      });
-    } else {
-      _analyzeImage();
-    }
+    _loadUserAndAnalyze();
   }
-
+  
   @override
   void dispose() {
     _titleController.dispose();
@@ -59,258 +38,210 @@ class _RecipeEditScreenState extends State<RecipeEditScreen> {
     _newIngredientController.dispose();
     super.dispose();
   }
-
-  Future<void> _analyzeImage() async {
+  
+  Future<void> _loadUserAndAnalyze() async {
     try {
-      final recipeInfo = await AIService().analyzeRecipeImage(
-        widget.imagePath,
-        widget.user.region,
+      final users = DatabaseService().getAllUsers();
+      final currentUser = users.firstWhere(
+        (user) => user.id == widget.userId,
+        orElse: () => users.first,
       );
-
+      _userRegion = currentUser.region;
+      
+      final result = await AIService().analyzeRecipeImage(widget.imagePath, _userRegion);
+      
       setState(() {
-        _ingredients = recipeInfo['ingredients'] as List<Ingredient>;
-        _preparationController.text = recipeInfo['preparation'] as String;
         _titleController.text = 'Nueva Receta';
+        _ingredients = result['ingredients'] as List<Ingredient>;
+        _preparationController.text = result['preparation'] as String;
         _isLoading = false;
       });
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error al analizar la imagen: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-        setState(() {
-          _isLoading = false;
-          _ingredients = [];
-          _preparationController.text = '';
-          _titleController.text = 'Nueva Receta';
-        });
-      }
+      setState(() {
+        _isLoading = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error al analizar imagen: $e')),
+      );
     }
   }
-
-  void _toggleIngredient(Ingredient ingredient) {
+  
+  void _toggleIngredient(int index) {
     setState(() {
-      final index = _ingredients.indexWhere((i) => i.id == ingredient.id);
-      if (index != -1) {
-        _ingredients[index] = Ingredient(
-          id: ingredient.id,
-          name: ingredient.name,
-          isSelected: !ingredient.isSelected,
-          isAIGenerated: ingredient.isAIGenerated,
-        );
-      }
+      _ingredients[index].isSelected = !_ingredients[index].isSelected;
     });
   }
-
+  
   void _addIngredient() {
     if (_newIngredientController.text.trim().isNotEmpty) {
       setState(() {
-        _ingredients.add(
-          Ingredient(
-            id: const Uuid().v4(),
-            name: _newIngredientController.text.trim(),
-            isSelected: true,
-            isAIGenerated: false,
-          ),
-        );
+        _ingredients.add(Ingredient(
+          id: DateTime.now().millisecondsSinceEpoch.toString(),
+          name: _newIngredientController.text.trim(),
+          isSelected: true,
+          isAIGenerated: false,
+        ));
         _newIngredientController.clear();
       });
     }
   }
-
-  void _removeIngredient(Ingredient ingredient) {
+  
+  void _removeIngredient(int index) {
     setState(() {
-      _ingredients.removeWhere((i) => i.id == ingredient.id);
+      _ingredients.removeAt(index);
     });
   }
-
+  
   Future<void> _saveRecipe() async {
-    if (_formKey.currentState!.validate()) {
+    if (_titleController.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Por favor ingresa un título')),
+      );
+      return;
+    }
+    
+    final selectedIngredients = _ingredients.where((i) => i.isSelected).toList();
+    
+    if (selectedIngredients.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Selecciona al menos un ingrediente')),
+      );
+      return;
+    }
+    
+    setState(() {
+      _isSaving = true;
+    });
+    
+    try {
+      final recipe = await DatabaseService().createRecipe(
+        title: _titleController.text,
+        imagePath: widget.imagePath,
+        ingredients: _ingredients,
+        preparation: _preparationController.text,
+        userId: widget.userId,
+      );
+      
+      await AppwriteService().syncRecipe(recipe);
+      
+      Navigator.of(context).pop(true);
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error al guardar: $e')),
+      );
+    } finally {
       setState(() {
-        _isSaving = true;
+        _isSaving = false;
       });
-
-      try {
-        final selectedIngredients =
-            _ingredients.where((i) => i.isSelected).toList();
-
-        if (selectedIngredients.isEmpty) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Debes seleccionar al menos un ingrediente'),
-              backgroundColor: Colors.red,
-            ),
-          );
-          setState(() {
-            _isSaving = false;
-          });
-          return;
-        }
-
-        if (widget.recipe != null) {
-          // Actualiza receta existente
-          final updatedRecipe = Recipe(
-            id: widget.recipe!.id,
-            title: _titleController.text,
-            imagePath: widget.imagePath,
-            ingredients: _ingredients,
-            preparation: _preparationController.text,
-            createdAt: widget.recipe!.createdAt,
-            userId: widget.user.id,
-            appwriteId: widget.recipe!.appwriteId,
-            isSynced: widget.recipe!.isSynced,
-          );
-
-          await LocalDBService().updateRecipe(updatedRecipe);
-        } else {
-          // Crear nueva receta
-          await LocalDBService().createRecipe(
-            title: _titleController.text,
-            imagePath: widget.imagePath,
-            ingredients: _ingredients,
-            preparation: _preparationController.text,
-            userId: widget.user.id,
-          );
-        }
-
-        if (mounted) {
-          Navigator.of(context).pop(true);
-        }
-      } catch (e) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Error al guardar la receta: $e'),
-              backgroundColor: Colors.red,
-            ),
-          );
-          setState(() {
-            _isSaving = false;
-          });
-        }
-      }
     }
   }
-
+  
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text(widget.recipe != null ? 'Editar Receta' : 'Nueva Receta'),
-      ),
+      appBar: AppBar(title: const Text('Nueva Receta')),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : SingleChildScrollView(
               padding: const EdgeInsets.all(16),
-              child: Form(
-                key: _formKey,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    AspectRatio(
-                      aspectRatio: 16 / 9,
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(12),
-                        child: Image.file(
-                          File(widget.imagePath),
-                          fit: BoxFit.cover,
-                        ),
-                      ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: Image.file(
+                      File(widget.imagePath),
+                      height: 200,
+                      width: double.infinity,
+                      fit: BoxFit.cover,
                     ),
-                    const SizedBox(height: 16),
-                    TextFormField(
-                      controller: _titleController,
-                      decoration: const InputDecoration(
-                        labelText: 'Título de la receta',
-                        border: OutlineInputBorder(),
-                      ),
-                      validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return 'Por favor ingresa un título';
-                        }
-                        return null;
-                      },
+                  ),
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    controller: _titleController,
+                    decoration: const InputDecoration(
+                      labelText: 'Título de la receta',
+                      border: OutlineInputBorder(),
                     ),
-                    const SizedBox(height: 24),
-                    const Text(
-                      'Ingredientes',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    ListView.builder(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      itemCount: _ingredients.length,
-                      itemBuilder: (context, index) {
-                        final ingredient = _ingredients[index];
-                        return IngredientItem(
-                          ingredient: ingredient,
-                          onToggle: () => _toggleIngredient(ingredient),
-                          onDelete: () => _removeIngredient(ingredient),
-                        );
-                      },
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: TextField(
-                            controller: _newIngredientController,
-                            decoration: const InputDecoration(
-                              labelText: 'Agregar ingrediente',
-                              border: OutlineInputBorder(),
-                            ),
-                            onSubmitted: (_) => _addIngredient(),
+                  ),
+                  const SizedBox(height: 24),
+                  const Text('Ingredientes', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 8),
+                  ListView.builder(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    itemCount: _ingredients.length,
+                    itemBuilder: (context, index) {
+                      final ingredient = _ingredients[index];
+                      return Card(
+                        child: ListTile(
+                          leading: Checkbox(
+                            value: ingredient.isSelected,
+                            onChanged: (_) => _toggleIngredient(index),
+                          ),
+                          title: Text(ingredient.name),
+                          trailing: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              if (ingredient.isAIGenerated)
+                                const Icon(Icons.auto_awesome, size: 16, color: Colors.orange),
+                              IconButton(
+                                icon: const Icon(Icons.delete_outline),
+                                onPressed: () => _removeIngredient(index),
+                              ),
+                            ],
                           ),
                         ),
-                        const SizedBox(width: 8),
-                        IconButton(
-                          onPressed: _addIngredient,
-                          icon: const Icon(Icons.add),
-                          style: IconButton.styleFrom(
-                            backgroundColor: AppColors.primary,
-                            foregroundColor: Colors.white,
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: _newIngredientController,
+                          decoration: const InputDecoration(
+                            labelText: 'Agregar ingrediente',
+                            border: OutlineInputBorder(),
                           ),
+                          onSubmitted: (_) => _addIngredient(),
                         ),
-                      ],
-                    ),
-                    const SizedBox(height: 24),
-                    const Text(
-                      'Preparación',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
                       ),
-                    ),
-                    const SizedBox(height: 8),
-                    TextFormField(
-                      controller: _preparationController,
-                      decoration: const InputDecoration(
-                        border: OutlineInputBorder(),
-                        hintText: 'Escribe los pasos de preparación...',
+                      const SizedBox(width: 8),
+                      IconButton(
+                        onPressed: _addIngredient,
+                        icon: const Icon(Icons.add),
+                        style: IconButton.styleFrom(
+                          backgroundColor: Colors.green,
+                          foregroundColor: Colors.white,
+                        ),
                       ),
-                      maxLines: 8,
-                      validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return 'Por favor ingresa la preparación';
-                        }
-                        return null;
-                      },
+                    ],
+                  ),
+                  const SizedBox(height: 24),
+                  const Text('Preparación', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 8),
+                  TextFormField(
+                    controller: _preparationController,
+                    decoration: const InputDecoration(
+                      border: OutlineInputBorder(),
+                      hintText: 'Escribe los pasos de preparación...',
                     ),
-                    const SizedBox(height: 24),
-                    CustomButton(
-                      text: 'Guardar Receta',
-                      isLoading: _isSaving,
-                      onPressed: _saveRecipe,
+                    maxLines: 8,
+                  ),
+                  const SizedBox(height: 24),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 48,
+                    child: ElevatedButton(
+                      onPressed: _isSaving ? null : _saveRecipe,
+                      child: _isSaving
+                          ? const CircularProgressIndicator(color: Colors.white)
+                          : const Text('Guardar Receta'),
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
     );

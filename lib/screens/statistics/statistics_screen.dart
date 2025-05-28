@@ -1,70 +1,55 @@
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
-import 'package:proyecto_recetas/models/ingredient.dart';
-import 'package:proyecto_recetas/models/user.dart';
-import 'package:proyecto_recetas/services/local_db_service.dart';
-import 'package:proyecto_recetas/services/constants.dart';
+import '../../services/database_service.dart';
 
 class StatisticsScreen extends StatefulWidget {
-  final UserModel user;
-
-  const StatisticsScreen({
-    Key? key,
-    required this.user,
-  }) : super(key: key);
+  final String userId;
+  
+  const StatisticsScreen({Key? key, required this.userId}) : super(key: key);
 
   @override
   State<StatisticsScreen> createState() => _StatisticsScreenState();
 }
 
 class _StatisticsScreenState extends State<StatisticsScreen> {
-  List<Ingredient> _topIngredients = [];
+  Map<String, int> _topIngredients = {};
   Map<String, int> _weeklyRecipes = {};
   bool _isLoading = true;
-
+  
   @override
   void initState() {
     super.initState();
     _loadStatistics();
   }
-
+  
   Future<void> _loadStatistics() async {
     setState(() {
       _isLoading = true;
     });
-
+    
     try {
-      final topIngredients =
-          LocalDBService().getMostUsedIngredients(widget.user.id);
-      final weeklyRecipes =
-          LocalDBService().getWeeklyRecipeCount(widget.user.id);
-
+      final topIngredients = DatabaseService().getMostUsedIngredients(widget.userId);
+      final weeklyRecipes = DatabaseService().getWeeklyRecipeCount(widget.userId);
+      
       setState(() {
         _topIngredients = topIngredients;
         _weeklyRecipes = weeklyRecipes;
         _isLoading = false;
       });
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error al cargar estadísticas: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-        setState(() {
-          _isLoading = false;
-        });
-      }
+      setState(() {
+        _isLoading = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error al cargar estadísticas: $e')),
+      );
     }
   }
-
+  
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Mis Estadísticas'),
-      ),
+      appBar: AppBar(title: const Text('Mis Estadísticas')),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : RefreshIndicator(
@@ -76,10 +61,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
                   children: [
                     const Text(
                       'Ingredientes más usados',
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                      ),
+                      style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                     ),
                     const SizedBox(height: 16),
                     _buildPieChart(),
@@ -88,10 +70,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
                     const SizedBox(height: 24),
                     const Text(
                       'Recetas semanales',
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                      ),
+                      style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                     ),
                     const SizedBox(height: 16),
                     _buildBarChart(),
@@ -101,186 +80,110 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
             ),
     );
   }
-
+  
   Widget _buildPieChart() {
     if (_topIngredients.isEmpty) {
       return const Center(
         child: Padding(
           padding: EdgeInsets.all(16.0),
-          child: Text(
-            'No hay suficientes datos para mostrar el gráfico',
-            style: TextStyle(color: AppColors.textLight),
-          ),
+          child: Text('No hay datos suficientes para mostrar el gráfico'),
         ),
       );
     }
-
+    
     return SizedBox(
       height: 200,
       child: PieChart(
         PieChartData(
-          sections: _getIngredientSections(),
+          sections: _getPieChartSections(),
           sectionsSpace: 2,
           centerSpaceRadius: 40,
-          startDegreeOffset: 180,
         ),
       ),
     );
   }
-
-  List<PieChartSectionData> _getIngredientSections() {
-    final List<Color> colors = [
-      AppColors.primary,
-      AppColors.secondary,
-      AppColors.accent,
-      Colors.blue,
-      Colors.purple,
-      Colors.teal,
-      Colors.amber,
-      Colors.pink,
-      Colors.indigo,
-      Colors.cyan,
-    ];
-
-    return List.generate(
-      _topIngredients.length > 5 ? 5 : _topIngredients.length,
-      (index) {
-        final ingredient = _topIngredients[index];
-        return PieChartSectionData(
-          color: colors[index % colors.length],
-          value: 1,
-          title: '',
-          radius: 50,
-          titleStyle: const TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.bold,
-            color: Colors.white,
-          ),
-        );
-      },
-    );
+  
+  List<PieChartSectionData> _getPieChartSections() {
+    final colors = [Colors.green, Colors.blue, Colors.orange, Colors.purple, Colors.red];
+    final entries = _topIngredients.entries.take(5).toList();
+    
+    return List.generate(entries.length, (index) {
+      final entry = entries[index];
+      return PieChartSectionData(
+        color: colors[index % colors.length],
+        value: entry.value.toDouble(),
+        title: '${entry.value}',
+        radius: 50,
+        titleStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white),
+      );
+    });
   }
-
+  
   Widget _buildTopIngredientsList() {
     if (_topIngredients.isEmpty) {
       return const Center(
-        child: Padding(
-          padding: EdgeInsets.all(16.0),
-          child: Text(
-            'No hay ingredientes para mostrar',
-            style: TextStyle(color: AppColors.textLight),
-          ),
-        ),
+        child: Text('No hay ingredientes para mostrar'),
       );
     }
-
-    final List<Color> colors = [
-      AppColors.primary,
-      AppColors.secondary,
-      AppColors.accent,
-      Colors.blue,
-      Colors.purple,
-      Colors.teal,
-      Colors.amber,
-      Colors.pink,
-      Colors.indigo,
-      Colors.cyan,
-    ];
-
+    
+    final colors = [Colors.green, Colors.blue, Colors.orange, Colors.purple, Colors.red];
+    
     return Card(
-      elevation: 2,
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'Top 10 Ingredientes',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
+            const Text('Top 10 Ingredientes', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
-            ...List.generate(
-              _topIngredients.length,
-              (index) {
-                final ingredient = _topIngredients[index];
-                return Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 4),
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 12,
-                        height: 12,
-                        decoration: BoxDecoration(
-                          color: colors[index % colors.length],
-                          shape: BoxShape.circle,
-                        ),
+            ...List.generate(_topIngredients.length, (index) {
+              final entry = _topIngredients.entries.elementAt(index);
+              return Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 12,
+                      height: 12,
+                      decoration: BoxDecoration(
+                        color: colors[index % colors.length],
+                        shape: BoxShape.circle,
                       ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          ingredient.name,
-                          style: const TextStyle(fontSize: 14),
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              },
-            ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(child: Text(entry.key)),
+                    Text('${entry.value}', style: const TextStyle(fontWeight: FontWeight.bold)),
+                  ],
+                ),
+              );
+            }),
           ],
         ),
       ),
     );
   }
-
+  
   Widget _buildBarChart() {
     if (_weeklyRecipes.values.every((count) => count == 0)) {
       return const Center(
-        child: Padding(
-          padding: EdgeInsets.all(16.0),
-          child: Text(
-            'No hay recetas esta semana',
-            style: TextStyle(color: AppColors.textLight),
-          ),
-        ),
+        child: Text('No hay recetas esta semana'),
       );
     }
-
+    
     return SizedBox(
       height: 250,
       child: BarChart(
         BarChartData(
           alignment: BarChartAlignment.spaceAround,
           maxY: _getMaxRecipeCount() + 1,
-          barTouchData: BarTouchData(enabled: false),
           titlesData: FlTitlesData(
             show: true,
             bottomTitles: AxisTitles(
               sideTitles: SideTitles(
                 showTitles: true,
                 getTitlesWidget: (value, meta) {
-                  final weekdays = [
-                    'Lun',
-                    'Mar',
-                    'Mié',
-                    'Jue',
-                    'Vie',
-                    'Sáb',
-                    'Dom'
-                  ];
-                  return Padding(
-                    padding: const EdgeInsets.only(top: 8),
-                    child: Text(
-                      weekdays[value.toInt()],
-                      style: const TextStyle(
-                        color: AppColors.textLight,
-                        fontSize: 12,
-                      ),
-                    ),
-                  );
+                  final weekdays = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
+                  return Text(weekdays[value.toInt()], style: const TextStyle(fontSize: 12));
                 },
               ),
             ),
@@ -288,37 +191,12 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
               sideTitles: SideTitles(
                 showTitles: true,
                 getTitlesWidget: (value, meta) {
-                  if (value == 0) return const SizedBox();
-                  return Padding(
-                    padding: const EdgeInsets.only(right: 8),
-                    child: Text(
-                      value.toInt().toString(),
-                      style: const TextStyle(
-                        color: AppColors.textLight,
-                        fontSize: 12,
-                      ),
-                    ),
-                  );
+                  return Text(value.toInt().toString(), style: const TextStyle(fontSize: 12));
                 },
               ),
             ),
-            topTitles: const AxisTitles(
-              sideTitles: SideTitles(showTitles: false),
-            ),
-            rightTitles: const AxisTitles(
-              sideTitles: SideTitles(showTitles: false),
-            ),
-          ),
-          gridData: FlGridData(
-            show: true,
-            horizontalInterval: 1,
-            getDrawingHorizontalLine: (value) {
-              return FlLine(
-                color: AppColors.background,
-                strokeWidth: 1,
-              );
-            },
-            drawVerticalLine: false,
+            topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+            rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
           ),
           borderData: FlBorderData(show: false),
           barGroups: _getBarGroups(),
@@ -326,18 +204,10 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
       ),
     );
   }
-
+  
   List<BarChartGroupData> _getBarGroups() {
-    final weekdays = [
-      'Lunes',
-      'Martes',
-      'Miércoles',
-      'Jueves',
-      'Viernes',
-      'Sábado',
-      'Domingo'
-    ];
-
+    final weekdays = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
+    
     return List.generate(7, (index) {
       final count = _weeklyRecipes[weekdays[index]] ?? 0;
       return BarChartGroupData(
@@ -345,7 +215,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
         barRods: [
           BarChartRodData(
             toY: count.toDouble(),
-            color: AppColors.primary,
+            color: Colors.green,
             width: 20,
             borderRadius: const BorderRadius.only(
               topLeft: Radius.circular(4),
@@ -356,7 +226,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
       );
     });
   }
-
+  
   double _getMaxRecipeCount() {
     if (_weeklyRecipes.isEmpty) return 1;
     return _weeklyRecipes.values.reduce((a, b) => a > b ? a : b).toDouble();
