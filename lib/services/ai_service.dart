@@ -12,9 +12,6 @@ class AIService {
   
   Future<Map<String, dynamic>> analyzeRecipeImage(String imagePath, String region) async {
     try {
-      if (AIConstants.geminiApiKey == 'AIzaSyBf4o59T0-8-fVOjtvLE2uYQpGjwEAsp_I') {
-        return _getFallbackResponse(region);
-      }
       
       final File imageFile = File(imagePath);
       final List<int> imageBytes = await imageFile.readAsBytes();
