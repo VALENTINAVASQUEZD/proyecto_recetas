@@ -15,7 +15,7 @@ class AppwriteService {
   late Storage storage;
   
   void initialize() {
-    if (AppwriteConstants.projectId == 'YOUR_APPWRITE_PROJECT_ID') {
+    if (AppwriteConstants.projectId == '68363bfe000210ecc4f3') {
       print('Appwrite no configurado - usando solo almacenamiento local');
       return;
     }
@@ -31,7 +31,7 @@ class AppwriteService {
   
   Future<Document?> syncUser(UserModel user) async {
     try {
-      if (AppwriteConstants.projectId == 'YOUR_APPWRITE_PROJECT_ID') return null;
+      if (AppwriteConstants.projectId == '68363bfe000210ecc4f3') return null;
       
       final document = await databases.createDocument(
         databaseId: AppwriteConstants.databaseId,
@@ -48,7 +48,7 @@ class AppwriteService {
   
   Future<Document?> syncRecipe(Recipe recipe) async {
     try {
-      if (AppwriteConstants.projectId == 'YOUR_APPWRITE_PROJECT_ID') return null;
+      if (AppwriteConstants.projectId == '68363bfe000210ecc4f3') return null;
       
       final document = await databases.createDocument(
         databaseId: AppwriteConstants.databaseId,
